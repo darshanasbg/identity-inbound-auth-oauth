@@ -18,6 +18,7 @@
 
 package org.wso2.carbon.identity.oauth2.validators;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.common.model.User;
@@ -336,9 +337,13 @@ public class TokenValidationHandler {
      * @return
      */
     private String getAuthzUser(AccessTokenDO accessTokenDO) {
-        User user = accessTokenDO.getAuthzUser();
-        String authzUser = UserCoreUtil.addDomainToName(user.getUserName(), user.getUserStoreDomain());
-        return UserCoreUtil.addTenantDomainToEntry(authzUser, user.getTenantDomain());
+        if (StringUtils.isNotEmpty(accessTokenDO.getAuthzUser().getAuthenticatedSubjectIdentifier())) {
+            return accessTokenDO.getAuthzUser().getAuthenticatedSubjectIdentifier();
+        } else {
+            User user = accessTokenDO.getAuthzUser();
+            String authzUser = UserCoreUtil.addDomainToName(user.getUserName(), user.getUserStoreDomain());
+            return UserCoreUtil.addTenantDomainToEntry(authzUser, user.getTenantDomain());
+        }
     }
 
     /**
