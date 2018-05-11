@@ -221,7 +221,7 @@ public class RequestObjectDAOImpl implements RequestObjectDAO {
         }
     }
 
-    private Map<Integer, String> getInsertedRequestObjectClaims(int requestObjectId) {
+    private Map<Integer, String> getInsertedRequestObjectClaims(int requestObjectId) throws IdentityOAuth2Exception {
 
         Connection connection = IdentityDatabaseUtil.getDBConnection();
         Map<Integer, String> insertedRequestObjectClaims = new HashMap<>();
@@ -241,6 +241,8 @@ public class RequestObjectDAOImpl implements RequestObjectDAO {
             connection.commit();
 
         } catch (SQLException e) {
+            log.error("Error when retrieving inserted claim attributes details.", e);
+            throw new IdentityOAuth2Exception("Error when storing the request object claims", e);
         } finally {
             IdentityDatabaseUtil.closeAllConnections(connection, resultSet, prepStmt);
         }
