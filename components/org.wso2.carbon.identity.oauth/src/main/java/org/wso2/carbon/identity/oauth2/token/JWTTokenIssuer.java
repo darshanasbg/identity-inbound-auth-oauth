@@ -30,6 +30,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.JWTParser;
 import com.nimbusds.jwt.PlainJWT;
 import com.nimbusds.jwt.SignedJWT;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -80,6 +81,10 @@ public class JWTTokenIssuer extends OauthTokenIssuerImpl {
     private static final String KEY_STORE_EXTENSION = ".jks";
     private static final String AUTHORIZATION_PARTY = "azp";
     private static final String AUDIENCE = "aud";
+    private static final String SCOPE = "scope";
+
+    // To keep track of the expiry time provided in the original jwt assertion, when JWT grant type is used.
+    public static final String EXPIRY_TIME_JWT = "EXPIRY_TIME_JWT";
 
     private static final Log log = LogFactory.getLog(JWTTokenIssuer.class);
 
@@ -394,6 +399,40 @@ public class JWTTokenIssuer extends OauthTokenIssuerImpl {
         jwtClaimsSet.setSubject(user.getAuthenticatedSubjectIdentifier());
         jwtClaimsSet.setClaim(AUTHORIZATION_PARTY, consumerKey);
         jwtClaimsSet.setExpirationTime(new Date(curTimeInMillis + accessTokenLifeTimeInMillis));
+
+        String[] scope;
+        if (tokenReqMessageContext != null) {
+            scope = tokenReqMessageContext.getScope();
+        } else {
+            scope = authAuthzReqMessageContext.getApprovedScope();
+        }
+        if (ArrayUtils.isNotEmpty(scope)) {
+            String scopeString = OAuth2Util.buildScopeString(scope);
+            if (log.isDebugEnabled()) {
+                log.debug("Scope exist for the jwt access token with subject " + jwtClaimsSet.getSubject() + " and "
+                        + "the scope is " + scopeString);
+            }
+            jwtClaimsSet.setClaim(SCOPE, scopeString);
+        }
+
+        if (tokenReqMessageContext != null) {
+            Object assertionExpiryTime = tokenReqMessageContext.getProperty(EXPIRY_TIME_JWT);
+            if (assertionExpiryTime != null) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Expiry time from the previous token " + ((Date) assertionExpiryTime).getTime());
+                }
+
+                if (jwtClaimsSet.getExpirationTime().after((Date) assertionExpiryTime)) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Expiry time of newly generated token as per the configurations " +
+                                jwtClaimsSet.getExpirationTime() + ", since this time is after assertion expiry time "
+                                + assertionExpiryTime + " setting, " +  assertionExpiryTime + " as the expiry time");
+                    }
+                    jwtClaimsSet.setExpirationTime((Date) assertionExpiryTime);
+                }
+            }
+        }
+
         jwtClaimsSet.setIssueTime(new Date(curTimeInMillis));
         jwtClaimsSet.setJWTID(UUID.randomUUID().toString());
 
