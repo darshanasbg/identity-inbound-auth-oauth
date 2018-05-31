@@ -84,7 +84,7 @@ public class JWTTokenIssuer extends OauthTokenIssuerImpl {
     private static final String SCOPE = "scope";
 
     // To keep track of the expiry time provided in the original jwt assertion, when JWT grant type is used.
-    public static final String EXPIRY_TIME_JWT = "EXPIRY_TIME_JWT";
+    private static final String EXPIRY_TIME_JWT = "EXPIRY_TIME_JWT";
 
     private static final Log log = LogFactory.getLog(JWTTokenIssuer.class);
 
@@ -399,6 +399,35 @@ public class JWTTokenIssuer extends OauthTokenIssuerImpl {
         jwtClaimsSet.setSubject(user.getAuthenticatedSubjectIdentifier());
         jwtClaimsSet.setClaim(AUTHORIZATION_PARTY, consumerKey);
         jwtClaimsSet.setExpirationTime(new Date(curTimeInMillis + accessTokenLifeTimeInMillis));
+        jwtClaimsSet.setIssueTime(new Date(curTimeInMillis));
+        jwtClaimsSet.setJWTID(UUID.randomUUID().toString());
+        jwtClaimsSet = handleScope(authAuthzReqMessageContext, tokenReqMessageContext, jwtClaimsSet);
+        jwtClaimsSet = handleExpiryTime(tokenReqMessageContext, jwtClaimsSet);
+
+        // This is a spec (openid-connect-core-1_0:2.0) requirement for ID tokens. But we are keeping this in JWT
+        // as well.
+        jwtClaimsSet.setAudience(Collections.singletonList(consumerKey));
+
+        // Handle custom claims
+        if (authAuthzReqMessageContext != null) {
+            handleCustomClaims(jwtClaimsSet, authAuthzReqMessageContext);
+        } else {
+            handleCustomClaims(jwtClaimsSet, tokenReqMessageContext);
+        }
+
+        return jwtClaimsSet;
+    }
+
+    /**
+     * To add the scope of the token to jwt claim set.
+     *
+     * @param authAuthzReqMessageContext Auth Request Message Context.
+     * @param tokenReqMessageContext     Token Request Message Context.
+     * @param jwtClaimsSet               Relevant JWT Claim Set.
+     * @return updated claim set with scope.
+     */
+    private JWTClaimsSet handleScope(OAuthAuthzReqMessageContext authAuthzReqMessageContext,
+            OAuthTokenReqMessageContext tokenReqMessageContext, JWTClaimsSet jwtClaimsSet) {
 
         String[] scope;
         if (tokenReqMessageContext != null) {
@@ -414,6 +443,18 @@ public class JWTTokenIssuer extends OauthTokenIssuerImpl {
             }
             jwtClaimsSet.setClaim(SCOPE, scopeString);
         }
+        return jwtClaimsSet;
+    }
+
+    /**
+     * To handle the expiry time claim of the JWT token, based on the previous assertion expiry time.
+     *
+     * @param tokenReqMessageContext Token request message context.
+     * @param jwtClaimsSet           JWT Claim set.
+     * @return Updated JWT Claim set.
+     */
+    private JWTClaimsSet handleExpiryTime(OAuthTokenReqMessageContext tokenReqMessageContext,
+            JWTClaimsSet jwtClaimsSet) {
 
         if (tokenReqMessageContext != null) {
             Object assertionExpiryTime = tokenReqMessageContext.getProperty(EXPIRY_TIME_JWT);
@@ -424,29 +465,14 @@ public class JWTTokenIssuer extends OauthTokenIssuerImpl {
 
                 if (jwtClaimsSet.getExpirationTime().after((Date) assertionExpiryTime)) {
                     if (log.isDebugEnabled()) {
-                        log.debug("Expiry time of newly generated token as per the configurations " +
-                                jwtClaimsSet.getExpirationTime() + ", since this time is after assertion expiry time "
-                                + assertionExpiryTime + " setting, " +  assertionExpiryTime + " as the expiry time");
+                        log.debug("Expiry time of newly generated token as per the configurations " + jwtClaimsSet
+                                .getExpirationTime() + ", since this time is after assertion expiry time "
+                                + assertionExpiryTime + " setting, " + assertionExpiryTime + " as the expiry time");
                     }
                     jwtClaimsSet.setExpirationTime((Date) assertionExpiryTime);
                 }
             }
         }
-
-        jwtClaimsSet.setIssueTime(new Date(curTimeInMillis));
-        jwtClaimsSet.setJWTID(UUID.randomUUID().toString());
-
-        // This is a spec (openid-connect-core-1_0:2.0) requirement for ID tokens. But we are keeping this in JWT
-        // as well.
-        jwtClaimsSet.setAudience(Collections.singletonList(consumerKey));
-
-        // Handle custom claims
-        if (authAuthzReqMessageContext != null) {
-            handleCustomClaims(jwtClaimsSet, authAuthzReqMessageContext);
-        } else {
-            handleCustomClaims(jwtClaimsSet, tokenReqMessageContext);
-        }
-
         return jwtClaimsSet;
     }
 
