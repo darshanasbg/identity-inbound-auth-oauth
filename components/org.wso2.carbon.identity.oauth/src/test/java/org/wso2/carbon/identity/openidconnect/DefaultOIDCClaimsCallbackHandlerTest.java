@@ -23,13 +23,9 @@ import org.apache.commons.lang.StringUtils;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.Spy;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 import org.opensaml.saml2.core.Assertion;
 import org.opensaml.saml2.core.Attribute;
 import org.opensaml.saml2.core.AttributeStatement;
-import org.opensaml.saml2.core.NameID;
-import org.opensaml.saml2.core.Subject;
 import org.opensaml.saml2.core.impl.AssertionBuilder;
 import org.opensaml.saml2.core.impl.AttributeBuilder;
 import org.opensaml.saml2.core.impl.AttributeStatementBuilder;
@@ -37,6 +33,7 @@ import org.opensaml.xml.ConfigurationException;
 import org.opensaml.xml.XMLObject;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.testng.Assert;
 import org.testng.IObjectFactory;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -61,11 +58,15 @@ import org.wso2.carbon.identity.oauth.cache.AuthorizationGrantCache;
 import org.wso2.carbon.identity.oauth.cache.AuthorizationGrantCacheEntry;
 import org.wso2.carbon.identity.oauth.cache.AuthorizationGrantCacheKey;
 import org.wso2.carbon.identity.oauth.common.OAuthConstants;
+import org.wso2.carbon.identity.oauth.config.OAuthServerConfiguration;
+import org.wso2.carbon.identity.oauth2.TestConstants;
 import org.wso2.carbon.identity.oauth2.authz.OAuthAuthzReqMessageContext;
 import org.wso2.carbon.identity.oauth2.dto.OAuth2AccessTokenReqDTO;
 import org.wso2.carbon.identity.oauth2.dto.OAuth2AuthorizeReqDTO;
 import org.wso2.carbon.identity.oauth2.internal.OAuth2ServiceComponentHolder;
+import org.wso2.carbon.identity.oauth2.model.RefreshTokenValidationDataDO;
 import org.wso2.carbon.identity.oauth2.token.OAuthTokenReqMessageContext;
+import org.wso2.carbon.identity.oauth2.token.handlers.grant.saml.SAML2BearerGrantHandlerTest;
 import org.wso2.carbon.identity.openidconnect.internal.OpenIDConnectServiceComponentHolder;
 import org.wso2.carbon.identity.openidconnect.model.RequestedClaim;
 import org.wso2.carbon.registry.api.RegistryException;
@@ -109,6 +110,7 @@ import static org.wso2.carbon.identity.oauth.common.OAuthConstants.OIDCClaims.AD
 import static org.wso2.carbon.identity.oauth.common.OAuthConstants.OIDCClaims.EMAIL_VERIFIED;
 import static org.wso2.carbon.identity.oauth.common.OAuthConstants.OIDCClaims.PHONE_NUMBER_VERIFIED;
 import static org.wso2.carbon.identity.oauth.common.OAuthConstants.OIDCClaims.UPDATED_AT;
+import static org.wso2.carbon.identity.oauth2.token.handlers.grant.RefreshGrantHandler.PREV_ACCESS_TOKEN;
 import static org.wso2.carbon.user.core.UserCoreConstants.DOMAIN_SEPARATOR;
 
 /**
@@ -128,15 +130,6 @@ public class DefaultOIDCClaimsCallbackHandlerTest {
 
     @Spy
     private AuthorizationGrantCache authorizationGrantCache;
-
-    @Mock
-    private Assertion assertion;
-
-    @Mock
-    private Subject mockSubject;
-
-    @Mock
-    private NameID nameID;
 
     @Mock
     private RegistryService registryService;
@@ -355,20 +348,88 @@ public class DefaultOIDCClaimsCallbackHandlerTest {
         assertTrue(jwtClaimsSet.getCustomClaims().isEmpty());
     }
 
-    @Test
-    public void testHandleCustomClaimsWithOAuthTokenReqMsgCtxtEmptyUserClaims() throws Exception {
+    @Test(description = "This method tests the handle custom claims when there is no user attributes in cache but "
+            + "with attributes in authenticated user")
+    public void testHandleCustomClaimsWithoutClaimsInUserAttributes() throws Exception {
+
+        // Create a token request with User Attributes.
         JWTClaimsSet jwtClaimsSet = new JWTClaimsSet();
-        OAuthTokenReqMessageContext requestMsgCtx = getTokenReqMessageContextForLocalUser();
+        Map<ClaimMapping, String> userAttributes = new HashMap<>();
+        userAttributes.put(SAML2BearerGrantHandlerTest.buildClaimMapping(COUNTRY), TestConstants.CLAIM_VALUE1);
+        userAttributes.put(SAML2BearerGrantHandlerTest.buildClaimMapping(EMAIL), TestConstants.CLAIM_VALUE2);
+        OAuthTokenReqMessageContext requestMsgCtx = getTokenReqMessageContextForFederatedUser(userAttributes);
 
-        ServiceProvider serviceProvider = getSpWithDefaultRequestedClaimsMappings();
-        mockApplicationManagementService(serviceProvider);
+        // Add the relevant oidc claims to scop resource.
+        Properties oidcProperties = new Properties();
+        String[] oidcScopeClaims = new String[] { COUNTRY, EMAIL };
+        oidcProperties.setProperty(OIDC_SCOPE, StringUtils.join(oidcScopeClaims, ","));
+        mockOIDCScopeResource(oidcProperties);
 
-        UserRealm userRealm = getUserRealmWithUserClaims(Collections.emptyMap());
+        // Mock to return all the scopes when the consent is asked for.
+        UserRealm userRealm = getUserRealmWithUserClaims(USER_CLAIMS_MAP);
         mockUserRealm(requestMsgCtx.getAuthorizedUser().toString(), userRealm);
-
         defaultOIDCClaimsCallbackHandler.handleCustomClaims(jwtClaimsSet, requestMsgCtx);
-        assertNotNull(jwtClaimsSet);
-        assertTrue(jwtClaimsSet.getCustomClaims().isEmpty());
+        assertNotNull(jwtClaimsSet, "JWT Custom claim handling failed.");
+        assertFalse(jwtClaimsSet.getCustomClaims().isEmpty(), "JWT custom claim handling failed");
+        Assert.assertEquals(jwtClaimsSet.getCustomClaims().size(), userAttributes.size(),
+                "Expected custom claims are not set.");
+        Assert.assertEquals(jwtClaimsSet.getCustomClaim(COUNTRY), TestConstants.CLAIM_VALUE1,
+                "OIDC claim " + COUNTRY + " is not added with the JWT token");
+        Assert.assertEquals(jwtClaimsSet.getCustomClaim(EMAIL), TestConstants.CLAIM_VALUE2,
+                "OIDC claim " + EMAIL + " is not added with the JWT token");
+    }
+
+    @Test(description = "This method tests the handle custom claims when there is no user attributes in cache as well"
+            + " as in authenticates user object")
+    public void testHandleCustomClaimsWithoutClaimsInRefreshFlow() throws Exception {
+
+        JWTClaimsSet jwtClaimsSet = new JWTClaimsSet();
+        OAuthTokenReqMessageContext requestMsgCtx = getTokenReqMessageContextForFederatedUser(null);
+        // Add the relevant oidc claims to scop resource.
+        Properties oidcProperties = new Properties();
+        String[] oidcScopeClaims = new String[] { USERNAME, EMAIL };
+        oidcProperties.setProperty(OIDC_SCOPE, StringUtils.join(oidcScopeClaims, ","));
+        mockOIDCScopeResource(oidcProperties);
+
+        Map<ClaimMapping, String> userAttributes = new HashMap<>();
+        userAttributes.put(SAML2BearerGrantHandlerTest.buildClaimMapping(USERNAME), TestConstants.CLAIM_VALUE1);
+        userAttributes.put(SAML2BearerGrantHandlerTest.buildClaimMapping(EMAIL), TestConstants.CLAIM_VALUE2);
+        userAttributes
+                .put(SAML2BearerGrantHandlerTest.buildClaimMapping(PHONE_NUMBER_VERIFIED), TestConstants.CLAIM_VALUE2);
+
+        AuthorizationGrantCacheEntry authorizationGrantCacheEntry = new AuthorizationGrantCacheEntry(userAttributes);
+        authorizationGrantCacheEntry.setSubjectClaim(requestMsgCtx.getAuthorizedUser().getUserName());
+        mockAuthorizationGrantCache(authorizationGrantCacheEntry);
+
+        RefreshTokenValidationDataDO refreshTokenValidationDataDO = Mockito.mock(RefreshTokenValidationDataDO.class);
+        Mockito.doReturn(SAMPLE_ACCESS_TOKEN).when(refreshTokenValidationDataDO).getAccessToken();
+        requestMsgCtx.addProperty(PREV_ACCESS_TOKEN, refreshTokenValidationDataDO);
+
+        UserRealm userRealm = getUserRealmWithUserClaims(USER_CLAIMS_MAP);
+        mockUserRealm(requestMsgCtx.getAuthorizedUser().toString(), userRealm);
+        defaultOIDCClaimsCallbackHandler.handleCustomClaims(jwtClaimsSet, requestMsgCtx);
+
+        Assert.assertFalse(jwtClaimsSet.getCustomClaims().isEmpty(),
+                "JWT custom claim list is empty. Custom claim handling failed in refresh flow");
+        Assert.assertEquals(jwtClaimsSet.getCustomClaim(USERNAME), TestConstants.CLAIM_VALUE1,
+                "Incomplete list of custom claims returned.");
+        Assert.assertEquals(jwtClaimsSet.getCustomClaim(PHONE_NUMBER_VERIFIED), TestConstants.CLAIM_VALUE2,
+                "Claims that are not added to mapping is not returned");
+
+        OAuthServerConfiguration oAuthServerConfiguration = OAuthServerConfiguration.getInstance();
+
+        Field convertOriginalClaimsFromAssertionsToOIDCDialect = OAuthServerConfiguration.class.getDeclaredField
+                ("convertOriginalClaimsFromAssertionsToOIDCDialect");
+        convertOriginalClaimsFromAssertionsToOIDCDialect.setAccessible(true);
+        convertOriginalClaimsFromAssertionsToOIDCDialect.set(oAuthServerConfiguration, true);
+        jwtClaimsSet = new JWTClaimsSet();
+        defaultOIDCClaimsCallbackHandler.handleCustomClaims(jwtClaimsSet, requestMsgCtx);
+
+        Assert.assertFalse(jwtClaimsSet.getCustomClaims().isEmpty(),
+                "JWT custom claim list is empty. Custom claim handling failed in refresh flow");
+        Assert.assertNull(jwtClaimsSet.getCustomClaim(PHONE_NUMBER_VERIFIED),
+                "Claims that are not in oidc scope is returned.");
+        convertOriginalClaimsFromAssertionsToOIDCDialect.set(oAuthServerConfiguration, false);
     }
 
     @Test
@@ -687,6 +748,29 @@ public class DefaultOIDCClaimsCallbackHandlerTest {
         return requestMsgCtx;
     }
 
+    /**
+     * To get token request message context for federates user.
+     *
+     * @param userAttributes Relevant user attributes need to be added to authenticates user.
+     * @return relevant token request context for federated authenticated user.
+     */
+    private OAuthTokenReqMessageContext getTokenReqMessageContextForFederatedUser(Map<ClaimMapping,
+            String> userAttributes) {
+
+        OAuth2AccessTokenReqDTO accessTokenReqDTO = new OAuth2AccessTokenReqDTO();
+        accessTokenReqDTO.setTenantDomain(TENANT_DOMAIN);
+        accessTokenReqDTO.setClientId(DUMMY_CLIENT_ID);
+        OAuthTokenReqMessageContext requestMsgCtx = new OAuthTokenReqMessageContext(accessTokenReqDTO);
+        requestMsgCtx.setScope(APPROVED_SCOPES);
+        AuthenticatedUser authenticatedUser = getDefaultAuthenticatedUserFederatedUser();
+
+        if (userAttributes != null) {
+            authenticatedUser.setUserAttributes(userAttributes);
+        }
+        requestMsgCtx.setAuthorizedUser(authenticatedUser);
+        return requestMsgCtx;
+    }
+
     @Test
     public void testHandleClaimsForOAuthAuthzReqMessageContext() throws Exception {
 
@@ -699,7 +783,7 @@ public class DefaultOIDCClaimsCallbackHandlerTest {
             when(oAuthAuthzReqMessageContext.getProperty(OAuthConstants.ACCESS_TOKEN))
                     .thenReturn(SAMPLE_ACCESS_TOKEN);
 
-            mockAuthorizationGrantCache();
+            mockAuthorizationGrantCache(null);
 
             OAuth2AuthorizeReqDTO oAuth2AuthorizeReqDTO = new OAuth2AuthorizeReqDTO();
             when(oAuthAuthzReqMessageContext.getAuthorizationReqDTO()).thenReturn(oAuth2AuthorizeReqDTO);
@@ -717,12 +801,18 @@ public class DefaultOIDCClaimsCallbackHandlerTest {
         }
     }
 
-    private void mockAuthorizationGrantCache() {
+    private void mockAuthorizationGrantCache(AuthorizationGrantCacheEntry authorizationGrantCacheEntry) {
+
         mockStatic(AuthorizationGrantCache.class);
         authorizationGrantCache = mock(AuthorizationGrantCache.class);
-        AuthorizationGrantCacheEntry authorizationGrantCacheEntry = mock(AuthorizationGrantCacheEntry.class);
+
+        if (authorizationGrantCacheEntry == null) {
+            authorizationGrantCacheEntry = mock(AuthorizationGrantCacheEntry.class);
+        }
         when(AuthorizationGrantCache.getInstance()).thenReturn(authorizationGrantCache);
         when(authorizationGrantCache.getValueFromCache(any(AuthorizationGrantCacheKey.class))).
+                thenReturn(authorizationGrantCacheEntry);
+        when(authorizationGrantCache.getValueFromCacheByToken(any(AuthorizationGrantCacheKey.class))).
                 thenReturn(authorizationGrantCacheEntry);
     }
 
@@ -758,7 +848,7 @@ public class DefaultOIDCClaimsCallbackHandlerTest {
         when(requestMsgCtx.getProperty(OAuthConstants.OAUTH_SAML2_ASSERTION)).thenReturn(null);
         when(requestMsgCtx.getProperty(OAuthConstants.ACCESS_TOKEN)).thenReturn(SAMPLE_ACCESS_TOKEN);
 
-        mockAuthorizationGrantCache();
+        mockAuthorizationGrantCache(null);
 
         AuthenticatedUser user = mock(AuthenticatedUser.class);
         when(requestMsgCtx.getAuthorizedUser()).thenReturn(user);
