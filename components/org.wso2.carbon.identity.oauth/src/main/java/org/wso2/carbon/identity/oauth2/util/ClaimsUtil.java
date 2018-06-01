@@ -392,6 +392,7 @@ public class ClaimsUtil {
             Map<String, String> userAttributes, Map<String, String> claimsAfterIDPandSPMapping,
             ClaimMapping[] idPClaimMappings) throws IdentityApplicationManagementException {
 
+        boolean isUserClaimsLoggable = isUserClaimsInTokenLoggable();
         ServiceProvider serviceProvider = getServiceProvider(tokenReqMsgCtx);
         ClaimConfig serviceProviderClaimConfig = serviceProvider.getClaimConfig();
         AuthenticatedUser authenticatedUser = tokenReqMsgCtx.getAuthorizedUser();
@@ -412,9 +413,11 @@ public class ClaimsUtil {
                 }
                 // If the relevant attribute is not mapped in IDP, add that.
                 if (!foundMatching) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("IDP Claim mapping does not exist for " + key + ", hence adding value " + value
-                                + " for the user : " + authenticatedUser);
+                    if (isUserClaimsLoggable) {
+                        if (log.isDebugEnabled()) {
+                            log.debug("IDP Claim mapping does not exist for " + key + ", hence adding value " + value
+                                    + " for the user : " + authenticatedUser);
+                        }
                     }
                     claimsAfterIDPandSPMapping.put(key, value);
                 } else {
@@ -430,9 +433,11 @@ public class ClaimsUtil {
                     }
                     // If the relevant attribute has IDP level mapping but not SP level mapping, add it.
                     if (!foundMatching) {
-                        if (log.isDebugEnabled()) {
-                            log.debug("SP Claim mapping does not exist for " + key + ", hence adding value " + value
-                                    + " for the user : " + authenticatedUser);
+                        if (isUserClaimsLoggable) {
+                            if (log.isDebugEnabled()) {
+                                log.debug("IDP Claim mapping exist, but SP Claim mapping does not exist for " + key
+                                        + ", hence adding value " + value + " for the user : " + authenticatedUser);
+                            }
                         }
                         claimsAfterIDPandSPMapping.put(key, value);
                     }
@@ -448,17 +453,21 @@ public class ClaimsUtil {
                 }
                 // If the attribute does not have the specific mapping in SP level, add the mapping.
                 if (!foundMatching) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("SP Claim mapping does not exist for " + key + ", hence adding value " + value
-                                + " for the user : " + authenticatedUser);
+                    if (isUserClaimsLoggable) {
+                        if (log.isDebugEnabled()) {
+                            log.debug("SP Claim mapping does not exist for " + key + ", hence adding value " + value
+                                    + " for the user : " + authenticatedUser);
+                        }
                     }
                     claimsAfterIDPandSPMapping.put(key, value);
                 }
             }
         });
-        if (log.isDebugEnabled()) {
-            log.debug("Final set of claims for the user : " + authenticatedUser + ": "
-                    + claimsAfterIDPandSPMapping.toString());
+        if (isUserClaimsLoggable) {
+            if (log.isDebugEnabled()) {
+                log.debug("Final set of claims for the user : " + authenticatedUser + ": " + claimsAfterIDPandSPMapping
+                        .toString());
+            }
         }
         return claimsAfterIDPandSPMapping;
     }
