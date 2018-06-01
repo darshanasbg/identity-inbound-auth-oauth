@@ -43,6 +43,8 @@ import org.wso2.carbon.identity.openidconnect.CustomClaimsCallbackHandler;
 import org.wso2.carbon.identity.testutil.powermock.PowerMockIdentityBaseTest;
 
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -88,6 +90,7 @@ public class JWTTokenIssuerTest extends PowerMockIdentityBaseTest {
     private static final String APPLICATION_ACCESS_TOKEN_GRANT_TYPE = "applicationAccessTokenGrantType";
     private static final String DUMMY_CLIENT_ID = "dummyClientID";
     private static final String ID_TOKEN_ISSUER = "idTokenIssuer";
+    private static final String EXPIRY_TIME_JWT = "EXPIRY_TIME_JWT";
 
     @Mock
     private OAuthServerConfiguration oAuthServerConfiguration;
@@ -200,6 +203,10 @@ public class JWTTokenIssuerTest extends PowerMockIdentityBaseTest {
         tokenReqDTO.setGrantType(APPLICATION_ACCESS_TOKEN_GRANT_TYPE);
         OAuthTokenReqMessageContext tokenReqMessageContext = new OAuthTokenReqMessageContext(tokenReqDTO);
         tokenReqMessageContext.setAuthorizedUser(authenticatedUser);
+        Calendar cal = Calendar.getInstance(); // creates calendar
+        cal.setTime(new Date()); // sets calendar time/date
+        cal.add(Calendar.HOUR_OF_DAY, 1); // adds one hour
+        tokenReqMessageContext.addProperty(EXPIRY_TIME_JWT, cal.getTime());
 
         return new Object[][]{
                 {
@@ -255,13 +262,18 @@ public class JWTTokenIssuerTest extends PowerMockIdentityBaseTest {
         // Validate expiry
         assertNotNull(jwtClaimSet.getIssueTime());
         assertNotNull(jwtClaimSet.getExpirationTime());
-        assertEquals(
-                new Duration(
-                        jwtClaimSet.getIssueTime().getTime(),
-                        jwtClaimSet.getExpirationTime().getTime()
-                ).getMillis(),
-                expectedExpiry
-        );
+
+        if (tokenReqMessageContext != null
+                && ((OAuthTokenReqMessageContext) tokenReqMessageContext).getProperty(EXPIRY_TIME_JWT)
+                != null) {
+            assertTrue(jwtClaimSet.getExpirationTime().compareTo(
+                    (Date) ((OAuthTokenReqMessageContext) tokenReqMessageContext)
+                            .getProperty(EXPIRY_TIME_JWT)) <= 0);
+        } else {
+            assertEquals(new Duration(jwtClaimSet.getIssueTime().getTime(), jwtClaimSet.getExpirationTime().getTime())
+                    .getMillis(), expectedExpiry);
+        }
+
     }
 
     @Test

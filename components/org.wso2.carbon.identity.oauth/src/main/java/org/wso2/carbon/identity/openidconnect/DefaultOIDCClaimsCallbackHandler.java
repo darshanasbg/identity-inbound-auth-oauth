@@ -44,7 +44,9 @@ import org.wso2.carbon.identity.oauth.config.OAuthServerConfiguration;
 import org.wso2.carbon.identity.oauth2.RequestObjectException;
 import org.wso2.carbon.identity.oauth2.authz.OAuthAuthzReqMessageContext;
 import org.wso2.carbon.identity.oauth2.internal.OAuth2ServiceComponentHolder;
+import org.wso2.carbon.identity.oauth2.model.RefreshTokenValidationDataDO;
 import org.wso2.carbon.identity.oauth2.token.OAuthTokenReqMessageContext;
+import org.wso2.carbon.identity.oauth2.token.handlers.grant.RefreshGrantHandler;
 import org.wso2.carbon.identity.openidconnect.internal.OpenIDConnectServiceComponentHolder;
 import org.wso2.carbon.identity.openidconnect.model.RequestedClaim;
 import org.wso2.carbon.user.api.UserRealm;
@@ -144,7 +146,9 @@ public class DefaultOIDCClaimsCallbackHandler implements CustomClaimsCallbackHan
             userClaimsInOIDCDialect = getOIDCClaimMapFromUserAttributes(userAttributes);
         }
 
-        if (isPreserverClaimUrisInAssertion(requestMsgCtx)) {
+        Object hasNonOIDCClaimsProperty = requestMsgCtx.getProperty(OIDCConstants.HAS_NON_OIDC_CLAIMS);
+        if (isPreserverClaimUrisInAssertion(requestMsgCtx) || (hasNonOIDCClaimsProperty != null
+                && (Boolean) hasNonOIDCClaimsProperty)) {
             return userClaimsInOIDCDialect;
         } else {
             return filterOIDCClaims(requestMsgCtx, userClaimsInOIDCDialect);
@@ -200,8 +204,9 @@ public class DefaultOIDCClaimsCallbackHandler implements CustomClaimsCallbackHan
     }
 
     private boolean isPreserverClaimUrisInAssertion(OAuthTokenReqMessageContext requestMsgCtx) {
-        return SAML20_BEARER.toString().equals(requestMsgCtx.getOauth2AccessTokenReqDTO().getGrantType()) &&
-                !OAuthServerConfiguration.getInstance().isConvertOriginalClaimsFromAssertionsToOIDCDialect();
+
+        return !OAuthServerConfiguration.getInstance().isConvertOriginalClaimsFromAssertionsToOIDCDialect() &&
+                requestMsgCtx.getAuthorizedUser().isFederatedUser();
     }
 
     private Map<String, Object> filterClaimsFromRequestObject(Map<String, Object> userAttributes,
@@ -241,6 +246,35 @@ public class DefaultOIDCClaimsCallbackHandler implements CustomClaimsCallbackHan
             userAttributes = getUserAttributesCachedAgainstAuthorizationCode(getAuthorizationCode(requestMsgCtx));
             if (log.isDebugEnabled()) {
                 log.debug("Retrieving claims cached against authorization_code for user: " + requestMsgCtx.getAuthorizedUser());
+            }
+        }
+
+        /* When building the jwt token, we cannot add it to authorization cache, as we save entries against, access
+         token. Hence if it is added against authenticated user object.*/
+        if (isEmpty(userAttributes)) {
+            if (log.isDebugEnabled()) {
+                log.debug("No claims found in authorization cache. Retrieving claims from attributes of user : " +
+                        requestMsgCtx.getAuthorizedUser());
+            }
+            AuthenticatedUser user = requestMsgCtx.getAuthorizedUser();
+            userAttributes = user != null ? user.getUserAttributes() : null;
+        }
+         // In the refresh flow, we need to follow the same way to get the claims.
+        if (isEmpty(userAttributes)) {
+            if (log.isDebugEnabled()) {
+                log.debug("No claims found in user in user attributes for user : " + requestMsgCtx.getAuthorizedUser());
+            }
+            Object previousAccessTokenObject = requestMsgCtx.getProperty(RefreshGrantHandler.PREV_ACCESS_TOKEN);
+
+            if (previousAccessTokenObject != null) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Retrieving claims from previous access token of user : " + requestMsgCtx
+                            .getAuthorizedUser());
+                }
+                RefreshTokenValidationDataDO refreshTokenValidationDataDO = (RefreshTokenValidationDataDO) previousAccessTokenObject;
+                userAttributes = getUserAttributesCachedAgainstToken(refreshTokenValidationDataDO.getAccessToken());
+                requestMsgCtx.addProperty(OIDCConstants.HAS_NON_OIDC_CLAIMS,
+                        isTokenHasCustomUserClaims(refreshTokenValidationDataDO));
             }
         }
         return userAttributes;
@@ -504,6 +538,27 @@ public class DefaultOIDCClaimsCallbackHandler implements CustomClaimsCallbackHan
     }
 
     /**
+     * To check whether a token has custom user claims.
+     *
+     * @param refreshTokenValidationDataDO RefreshTokenValidationDataDO.
+     * @return true if the token user attributes has non OIDC claims.
+     */
+    private boolean isTokenHasCustomUserClaims(RefreshTokenValidationDataDO refreshTokenValidationDataDO) {
+
+        AuthorizationGrantCacheKey cacheKey = new AuthorizationGrantCacheKey(
+                refreshTokenValidationDataDO.getAccessToken());
+        AuthorizationGrantCacheEntry cacheEntry = AuthorizationGrantCache.getInstance()
+                .getValueFromCacheByToken(cacheKey);
+        boolean hasNonOIDCClaims = cacheEntry != null && cacheEntry.isHasNonOIDCClaims();
+
+        if (log.isDebugEnabled()) {
+            log.debug("hasNonOIDCClaims is set to " + hasNonOIDCClaims + " for the access token of the user : "
+                    + refreshTokenValidationDataDO.getAuthorizedUser());
+        }
+        return cacheEntry != null && cacheEntry.isHasNonOIDCClaims();
+    }
+
+    /**
      * Get user attribute cached against the access token
      *
      * @param accessToken Access token
@@ -554,6 +609,7 @@ public class DefaultOIDCClaimsCallbackHandler implements CustomClaimsCallbackHan
     private void setClaimsToJwtClaimSet(JWTClaimsSet jwtClaimsSet, Map<String, Object> userClaimsInOIDCDialect) {
         for (Map.Entry<String, Object> claimEntry : userClaimsInOIDCDialect.entrySet()) {
             String claimValue = claimEntry.getValue().toString();
+            String claimKey = claimEntry.getKey();
             if (isMultiValuedAttribute(claimValue)) {
                 JSONArray claimValues = new JSONArray();
                 String[] attributeValues = claimValue.split(Pattern.quote(ATTRIBUTE_SEPARATOR));
@@ -562,9 +618,13 @@ public class DefaultOIDCClaimsCallbackHandler implements CustomClaimsCallbackHan
                         claimValues.add(attributeValue);
                     }
                 }
-                jwtClaimsSet.setClaim(claimEntry.getKey(), claimValues);
+                if (jwtClaimsSet.getClaim(claimKey) == null) {
+                    jwtClaimsSet.setClaim(claimKey, claimValues);
+                }
             } else {
-                jwtClaimsSet.setClaim(claimEntry.getKey(), claimEntry.getValue());
+                if (jwtClaimsSet.getClaim(claimKey) == null) {
+                    jwtClaimsSet.setClaim(claimKey, claimEntry.getValue());
+                }
             }
         }
     }
