@@ -81,7 +81,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -554,7 +553,9 @@ public class DefaultIDTokenBuilder implements org.wso2.carbon.identity.openidcon
         List<String> oidcAudiences = getDefinedCustomOIDCAudiences(clientId, tenantDomain);
         // Need to add client_id as an audience value according to the spec.
         if (!oidcAudiences.contains(clientId)) {
-            oidcAudiences.add(clientId);
+            oidcAudiences.add(0, clientId);
+        } else {
+            Collections.swap(oidcAudiences, oidcAudiences.indexOf(clientId), 0);
         }
         return oidcAudiences;
     }
@@ -824,6 +825,7 @@ public class DefaultIDTokenBuilder implements org.wso2.carbon.identity.openidcon
                 }
             }
         }
+
         return audiences;
     }
 
