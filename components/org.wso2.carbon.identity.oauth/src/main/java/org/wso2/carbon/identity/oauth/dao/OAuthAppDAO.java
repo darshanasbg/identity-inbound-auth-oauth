@@ -980,7 +980,6 @@ public class OAuthAppDAO {
             addToBatchForOIDCPropertyAdd(processedClientId, spTenantId, prepStmtAddOIDCProperty,
                     TOKEN_TYPE, consumerAppDO.getTokenType());
 
-
             prepStmtAddOIDCProperty.executeBatch();
         }
     }
