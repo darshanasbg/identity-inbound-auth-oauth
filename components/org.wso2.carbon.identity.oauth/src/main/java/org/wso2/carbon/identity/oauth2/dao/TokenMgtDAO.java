@@ -34,7 +34,9 @@ import org.wso2.carbon.identity.core.util.IdentityDatabaseUtil;
 import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.oauth.common.OAuthConstants;
+import org.wso2.carbon.identity.oauth.common.exception.InvalidOAuthClientException;
 import org.wso2.carbon.identity.oauth.config.OAuthServerConfiguration;
+import org.wso2.carbon.identity.oauth.dao.OAuthAppDO;
 import org.wso2.carbon.identity.oauth.tokenprocessor.HashingPersistenceProcessor;
 import org.wso2.carbon.identity.oauth.tokenprocessor.PlainTextPersistenceProcessor;
 import org.wso2.carbon.identity.oauth.tokenprocessor.TokenPersistenceProcessor;
@@ -84,7 +86,6 @@ public class TokenMgtDAO {
     private static final String UTC = "UTC";
     private static TokenPersistenceProcessor persistenceProcessor, hashingPersistenceProcessor;
 
-    private boolean persistAccessTokenAlias = OAuthServerConfiguration.getInstance().usePersistedAccessTokenAlias();
     private OauthTokenIssuer oauthIssuerImpl = OAuthServerConfiguration.getInstance().getIdentityOauthTokenIssuer();
 
     private static final int DEFAULT_POOL_SIZE = 0;
@@ -165,7 +166,7 @@ public class TokenMgtDAO {
     }
 
     public void storeAuthorizationCode(String authzCode, String consumerKey, String callbackUrl,
-                                       AuthzCodeDO authzCodeDO) throws IdentityOAuth2Exception {
+            AuthzCodeDO authzCodeDO) throws IdentityOAuth2Exception {
 
         if (!enablePersist) {
             return;
@@ -179,7 +180,7 @@ public class TokenMgtDAO {
     }
 
     public void persistAuthorizationCode(String authzCode, String consumerKey, String callbackUrl,
-                                         AuthzCodeDO authzCodeDO) throws IdentityOAuth2Exception {
+            AuthzCodeDO authzCodeDO) throws IdentityOAuth2Exception {
 
         if (!enablePersist) {
             return;
@@ -271,8 +272,8 @@ public class TokenMgtDAO {
     }
 
     public void storeAccessToken(String accessToken, String consumerKey,
-                                 AccessTokenDO accessTokenDO, Connection connection,
-                                 String userStoreDomain) throws IdentityOAuth2Exception {
+            AccessTokenDO accessTokenDO, Connection connection,
+            String userStoreDomain) throws IdentityOAuth2Exception {
 
         if (!enablePersist) {
             return;
@@ -292,19 +293,23 @@ public class TokenMgtDAO {
     }
 
     private void storeAccessToken(String accessToken, String consumerKey, AccessTokenDO accessTokenDO,
-                                  Connection connection, String userStoreDomain, int retryAttempt)
+            Connection connection, String userStoreDomain, int retryAttempt)
             throws IdentityOAuth2Exception {
-
-        if (persistAccessTokenAlias) {
-            try {
+        try {
+            OAuthAppDO oAuthAppDO = OAuth2Util.getAppInformationByClientId(consumerKey);
+            boolean persistAccessTokenAlias = OAuthServerConfiguration.getInstance().getPersistAccessTokenMap()
+                    .get(oAuthAppDO.getTokenType());
+            if (persistAccessTokenAlias) {
+                oauthIssuerImpl = OAuth2Util.getOAuthTokenIssuerForOAuthApp(oAuthAppDO);
                 accessToken = oauthIssuerImpl.getAccessTokenHash(accessToken);
-            } catch (OAuthSystemException e) {
-                if (log.isDebugEnabled() &&
-                        IdentityUtil.isTokenLoggable(IdentityConstants.IdentityTokens.ACCESS_TOKEN)) {
-                    log.debug("Error while getting access token hash for token: " + accessToken);
-                }
-                throw new IdentityOAuth2Exception("Error while getting access token hash.");
             }
+        } catch (InvalidOAuthClientException e) {
+            throw new IdentityOAuth2Exception("Error while retrieving app information for clientId: " + consumerKey, e);
+        } catch (OAuthSystemException e) {
+            if (log.isDebugEnabled() && IdentityUtil.isTokenLoggable(IdentityConstants.IdentityTokens.ACCESS_TOKEN)) {
+                log.debug("Error while getting access token hash for token: " + accessToken);
+            }
+            throw new IdentityOAuth2Exception("Error while getting access token hash.");
         }
 
         if (log.isDebugEnabled()) {
@@ -436,7 +441,7 @@ public class TokenMgtDAO {
     }
 
     public void storeAccessToken(String accessToken, String consumerKey, AccessTokenDO newAccessTokenDO,
-                                 AccessTokenDO existingAccessTokenDO, String userStoreDomain)
+            AccessTokenDO existingAccessTokenDO, String userStoreDomain)
             throws IdentityException {
 
         if (!enablePersist) {
@@ -454,8 +459,8 @@ public class TokenMgtDAO {
     }
 
     public boolean persistAccessToken(String accessToken, String consumerKey,
-                                      AccessTokenDO newAccessTokenDO, AccessTokenDO existingAccessTokenDO,
-                                      String userStoreDomain) throws IdentityOAuth2Exception {
+            AccessTokenDO newAccessTokenDO, AccessTokenDO existingAccessTokenDO,
+            String userStoreDomain) throws IdentityOAuth2Exception {
         if (!enablePersist) {
             return false;
         }
@@ -488,8 +493,8 @@ public class TokenMgtDAO {
     }
 
     public AccessTokenDO retrieveLatestAccessToken(String consumerKey, AuthenticatedUser authzUser,
-                                                   String userStoreDomain, String scope,
-                                                   boolean includeExpiredTokens)
+            String userStoreDomain, String scope,
+            boolean includeExpiredTokens)
             throws IdentityOAuth2Exception {
 
         if (log.isDebugEnabled()) {
@@ -644,7 +649,7 @@ public class TokenMgtDAO {
     }
 
     public Set<AccessTokenDO> retrieveAccessTokens(String consumerKey, AuthenticatedUser userName,
-                                                   String userStoreDomain, boolean includeExpired)
+            String userStoreDomain, boolean includeExpired)
             throws IdentityOAuth2Exception {
 
         if (log.isDebugEnabled()) {
@@ -1003,7 +1008,7 @@ public class TokenMgtDAO {
 
         if (log.isDebugEnabled() && IdentityUtil.isTokenLoggable(IdentityConstants.IdentityTokens.AUTHORIZATION_CODE)) {
             log.debug("Deactivating authorization code(hashed): " + DigestUtils.sha256Hex(authzCodeDO
-                        .getAuthorizationCode()));
+                    .getAuthorizationCode()));
 
         }
 
@@ -1240,7 +1245,7 @@ public class TokenMgtDAO {
      * @throws IdentityOAuth2Exception
      */
     public void setAccessTokenState(Connection connection, String tokenId, String tokenState,
-                                    String tokenStateId, String userStoreDomain)
+            String tokenStateId, String userStoreDomain)
             throws IdentityOAuth2Exception {
         PreparedStatement prepStmt = null;
         try {
@@ -1869,8 +1874,8 @@ public class TokenMgtDAO {
      * @throws IdentityOAuth2Exception
      */
     public void invalidateAndCreateNewToken(String oldAccessTokenId, String tokenState,
-                                            String consumerKey, String tokenStateId,
-                                            AccessTokenDO accessTokenDO, String userStoreDomain)
+            String consumerKey, String tokenStateId,
+            AccessTokenDO accessTokenDO, String userStoreDomain)
             throws IdentityOAuth2Exception {
 
         if (log.isDebugEnabled()) {
@@ -2438,7 +2443,7 @@ public class TokenMgtDAO {
     public String getTokenIdByToken(String token) throws IdentityOAuth2Exception {
 
         if (log.isDebugEnabled() && IdentityUtil.isTokenLoggable(IdentityConstants.IdentityTokens.ACCESS_TOKEN)) {
-                log.debug("Retrieving id of access token(hashed): " + DigestUtils.sha256Hex(token));
+            log.debug("Retrieving id of access token(hashed): " + DigestUtils.sha256Hex(token));
         }
 
         String tokenId = getTokenIdByToken(token, IdentityUtil.getPrimaryDomainName());
@@ -2699,7 +2704,7 @@ public class TokenMgtDAO {
     }
 
     public void updateAppAndRevokeTokensAndAuthzCodes(String consumerKey, Properties properties,
-                                                      String[] authorizationCodes, String[] accessTokens)
+            String[] authorizationCodes, String[] accessTokens)
             throws IdentityOAuth2Exception, IdentityApplicationManagementException {
 
         if (log.isDebugEnabled()) {
@@ -2880,8 +2885,8 @@ public class TokenMgtDAO {
      * @throws IdentityOAuth2Exception
      */
     public List<AccessTokenDO> retrieveLatestAccessTokens(String consumerKey, AuthenticatedUser authzUser,
-                                                          String userStoreDomain, String scope,
-                                                          boolean includeExpiredTokens, int limit)
+            String userStoreDomain, String scope,
+            boolean includeExpiredTokens, int limit)
             throws IdentityOAuth2Exception {
 
         if (log.isDebugEnabled()) {
@@ -2907,7 +2912,7 @@ public class TokenMgtDAO {
 
             String sql;
             if (connection.getMetaData().getDriverName().contains("MySQL")
-                || connection.getMetaData().getDriverName().contains("H2")) {
+                    || connection.getMetaData().getDriverName().contains("H2")) {
                 sql = SQLQueries.RETRIEVE_LATEST_ACCESS_TOKEN_BY_CLIENT_ID_USER_SCOPE_MYSQL;
             } else if (connection.getMetaData().getDatabaseProductName().contains("DB2")) {
                 sql = SQLQueries.RETRIEVE_LATEST_ACCESS_TOKEN_BY_CLIENT_ID_USER_SCOPE_DB2SQL;
@@ -3017,7 +3022,7 @@ public class TokenMgtDAO {
             return accessTokenDOs;
         } catch (SQLException e) {
             String errorMsg = "Error occurred while trying to retrieve latest 'ACTIVE' access token for Client " +
-                              "ID : " + consumerKey + ", User ID : " + authzUser + " and  Scope : " + scope;
+                    "ID : " + consumerKey + ", User ID : " + authzUser + " and  Scope : " + scope;
             if (includeExpiredTokens) {
                 errorMsg = errorMsg.replace("ACTIVE", "ACTIVE or EXPIRED");
             }
@@ -3028,7 +3033,7 @@ public class TokenMgtDAO {
     }
 
     public AccessTokenDO retrieveLatestToken(Connection connection, String consumerKey, AuthenticatedUser authzUser,
-                                             String userStoreDomain, String scope, boolean active)
+            String userStoreDomain, String scope, boolean active)
             throws IdentityOAuth2Exception {
 
         if (log.isDebugEnabled()) {
@@ -3150,8 +3155,8 @@ public class TokenMgtDAO {
                 }
                 user.setAuthenticatedSubjectIdentifier(subjectIdentifier, serviceProvider);
                 accessTokenDO = new AccessTokenDO(consumerKey, user, OAuth2Util.buildScopeArray(scope),
-                                                  new Timestamp(issuedTime), new Timestamp(refreshTokenIssuedTime),
-                                                  validityPeriodInMillis, refreshTokenValidityPeriodInMillis, userType);
+                        new Timestamp(issuedTime), new Timestamp(refreshTokenIssuedTime),
+                        validityPeriodInMillis, refreshTokenValidityPeriodInMillis, userType);
                 accessTokenDO.setAccessToken(accessToken);
                 accessTokenDO.setRefreshToken(refreshToken);
                 accessTokenDO.setTokenId(tokenId);
