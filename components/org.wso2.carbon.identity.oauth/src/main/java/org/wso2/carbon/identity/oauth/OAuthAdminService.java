@@ -50,6 +50,7 @@ import org.wso2.carbon.identity.oauth2.IdentityOAuth2Exception;
 import org.wso2.carbon.identity.oauth2.dao.OAuthTokenPersistenceFactory;
 import org.wso2.carbon.identity.oauth2.model.AccessTokenDO;
 import org.wso2.carbon.identity.oauth2.model.ClientCredentialDO;
+import org.wso2.carbon.identity.oauth2.model.TokenIssuerDO;
 import org.wso2.carbon.identity.oauth2.util.OAuth2Util;
 import org.wso2.carbon.identity.oauth2.validators.OAuth2ScopeValidator;
 import org.wso2.carbon.user.api.UserStoreException;
@@ -73,6 +74,7 @@ public class OAuthAdminService extends AbstractAdmin {
     public static final String AUTHORIZATION_CODE = "authorization_code";
     private static List<String> allowedGrants = null;
     private static String[] allowedScopeValidators = null;
+    private static List<String> supportedTokenTypes = null;
     protected Log log = LogFactory.getLog(OAuthAdminService.class);
 
     /**
@@ -146,6 +148,7 @@ public class OAuthAdminService extends AbstractAdmin {
                 dto.setIdTokenEncryptionAlgorithm(app.getIdTokenEncryptionAlgorithm());
                 dto.setIdTokenEncryptionMethod(app.getIdTokenEncryptionMethod());
                 dto.setBackChannelLogoutUrl(app.getBackChannelLogoutUrl());
+                dto.setTokenType(app.getTokenType());
                 dtos[i] = dto;
             }
         }
@@ -183,6 +186,7 @@ public class OAuthAdminService extends AbstractAdmin {
                 dto.setIdTokenEncryptionEnabled(app.isIdTokenEncryptionEnabled());
                 dto.setIdTokenEncryptionAlgorithm(app.getIdTokenEncryptionAlgorithm());
                 dto.setIdTokenEncryptionMethod(app.getIdTokenEncryptionMethod());
+                dto.setTokenType(app.getTokenType());
 
                 if (log.isDebugEnabled()) {
                     log.debug("Found App :" + dto.getApplicationName() + " for consumerKey: " + consumerKey);
@@ -227,6 +231,7 @@ public class OAuthAdminService extends AbstractAdmin {
                 dto.setIdTokenEncryptionAlgorithm(app.getIdTokenEncryptionAlgorithm());
                 dto.setIdTokenEncryptionMethod(app.getIdTokenEncryptionMethod());
                 dto.setBackChannelLogoutUrl(app.getBackChannelLogoutUrl());
+                dto.setTokenType(app.getTokenType());
             }
             return dto;
         } catch (InvalidOAuthClientException | IdentityOAuth2Exception e) {
@@ -320,6 +325,7 @@ public class OAuthAdminService extends AbstractAdmin {
                     app.setIdTokenEncryptionAlgorithm(application.getIdTokenEncryptionAlgorithm());
                     app.setIdTokenEncryptionMethod(application.getIdTokenEncryptionMethod());
                     app.setBackChannelLogoutUrl(application.getBackChannelLogoutUrl());
+                    app.setTokenType(application.getTokenType());
                 }
                 dao.addOAuthApplication(app);
                 AppInfoCache.getInstance().addToCache(app.getOauthConsumerKey(), app);
@@ -403,6 +409,7 @@ public class OAuthAdminService extends AbstractAdmin {
         oauthappdo.setUserAccessTokenExpiryTime(consumerAppDTO.getUserAccessTokenExpiryTime());
         oauthappdo.setApplicationAccessTokenExpiryTime(consumerAppDTO.getApplicationAccessTokenExpiryTime());
         oauthappdo.setRefreshTokenExpiryTime(consumerAppDTO.getRefreshTokenExpiryTime());
+        oauthappdo.setTokenType(consumerAppDTO.getTokenType());
         if (OAuthConstants.OAuthVersions.VERSION_2.equals(consumerAppDTO.getOAuthVersion())) {
             List<String> allowedGrantsTypes = new ArrayList<>(Arrays.asList(getAllowedGrantTypes()));
             String[] requestGrants = consumerAppDTO.getGrantTypes().split("\\s");
@@ -641,6 +648,7 @@ public class OAuthAdminService extends AbstractAdmin {
                                 appDTO.setIdTokenEncryptionEnabled(appDO.isIdTokenEncryptionEnabled());
                                 appDTO.setIdTokenEncryptionAlgorithm(appDO.getIdTokenEncryptionAlgorithm());
                                 appDTO.setIdTokenEncryptionMethod(appDO.getIdTokenEncryptionMethod());
+                                appDTO.setTokenType(appDO.getTokenType());
                                 appDTOs.add(appDTO);
                                 if (log.isDebugEnabled()) {
                                     log.debug("Found App: " + appDO.getApplicationName() + " for user: " + username);
@@ -868,6 +876,24 @@ public class OAuthAdminService extends AbstractAdmin {
             allowedScopeValidators = validators.toArray(new String[validators.size()]);
         }
         return allowedScopeValidators;
+    }
+
+    /**
+     * Get the registered oauth token types from OAuth server configuration file.
+     *
+     * @return List of supported oauth token types
+     */
+    public List<String> getSupportedTokenTypes() {
+
+        if (supportedTokenTypes == null) {
+            supportedTokenTypes = new ArrayList<>();
+            Map<String, TokenIssuerDO> supportedTokenTypesMap = OAuthServerConfiguration.getInstance()
+                    .getSupportedTokenIssuers();
+            for (Object tokenTypeObj : supportedTokenTypesMap.keySet()) {
+                supportedTokenTypes.add(tokenTypeObj.toString());
+            }
+        }
+        return supportedTokenTypes;
     }
 
     /**
