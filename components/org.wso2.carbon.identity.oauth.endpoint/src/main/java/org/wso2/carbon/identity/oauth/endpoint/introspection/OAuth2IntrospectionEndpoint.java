@@ -113,6 +113,10 @@ public class OAuth2IntrospectionEndpoint {
                     .setIssuer(introspectionResponse.getIss());
         }
 
+        if (introspectionResponse.getUserContext() != null) {
+            respBuilder.setTokenString(introspectionResponse.getUserContext());
+        }
+
         try {
             return Response.ok(respBuilder.build(), MediaType.APPLICATION_JSON).status(Response.Status.OK).build();
         } catch (JSONException e) {
