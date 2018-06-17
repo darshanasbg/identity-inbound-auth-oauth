@@ -17,6 +17,7 @@
  */
 package org.wso2.carbon.identity.oauth.endpoint.introspection;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -45,21 +46,14 @@ public class OAuth2IntrospectionEndpoint {
     private final static String JWT_TOKEN_TYPE = "JWT";
 
     /**
-     * @param token access token or refresh token
+     * @param token             access token or refresh token
+     * @param tokenTypeHint     hint for the type of the token submitted for introspection
+     * @param requiredClaims   comma separated list of claims to be returned in JWT
      * @return
      */
     @POST
-    public Response introspect(@FormParam("token") String token) {
-        return introspect(token, DEFAULT_TOKEN_TYPE_HINT);
-    }
-
-    /**
-     * @param token         access token or refresh token
-     * @param tokenTypeHint hint for the type of the token submitted for introspection
-     * @return
-     */
-    @POST
-    public Response introspect(@FormParam("token") String token, @FormParam("token_type_hint") String tokenTypeHint) {
+    public Response introspect(@FormParam("token") String token, @FormParam("token_type_hint") String tokenTypeHint,
+                               @FormParam("required_claims") String requiredClaims) {
 
         OAuth2TokenValidationRequestDTO introspectionRequest;
         OAuth2IntrospectionResponseDTO introspectionResponse;
@@ -76,12 +70,21 @@ public class OAuth2IntrospectionEndpoint {
             return Response.status(Response.Status.BAD_REQUEST).entity("{\"error\": \"Invalid input\"}").build();
         }
 
+        String[] claimsUris = null;
+        if (StringUtils.isNotBlank(requiredClaims)) {
+            claimsUris = requiredClaims.split(",");
+        }
+
         // validate the access token against the OAuth2TokenValidationService OSGi service.
         introspectionRequest = new OAuth2TokenValidationRequestDTO();
         OAuth2TokenValidationRequestDTO.OAuth2AccessToken accessToken = introspectionRequest.new OAuth2AccessToken();
         accessToken.setIdentifier(token);
         accessToken.setTokenType(tokenTypeHint);
         introspectionRequest.setAccessToken(accessToken);
+
+        if (ArrayUtils.isNotEmpty(claimsUris)) {
+            introspectionRequest.setRequiredClaimURIs(claimsUris);
+        }
 
         OAuth2TokenValidationService tokenService = (OAuth2TokenValidationService) PrivilegedCarbonContext
                 .getThreadLocalCarbonContext().getOSGiService(OAuth2TokenValidationService.class);
@@ -113,7 +116,8 @@ public class OAuth2IntrospectionEndpoint {
                     .setIssuer(introspectionResponse.getIss());
         }
 
-        if (introspectionResponse.getUserContext() != null) {
+        //provide jwt in the response only if claims are requested
+        if (introspectionResponse.getUserContext() != null && ArrayUtils.isNotEmpty(claimsUris)) {
             respBuilder.setTokenString(introspectionResponse.getUserContext());
         }
 
