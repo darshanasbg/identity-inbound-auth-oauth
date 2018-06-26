@@ -17,7 +17,6 @@
  */
 package org.wso2.carbon.identity.oauth.endpoint.introspection;
 
-import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -71,8 +70,10 @@ public class OAuth2IntrospectionEndpoint {
         }
 
         String[] claimsUris = null;
-        if (StringUtils.isNotBlank(requiredClaims)) {
+        if (StringUtils.isNotEmpty(requiredClaims)) {
             claimsUris = requiredClaims.split(",");
+        } else if (requiredClaims != null) {
+            claimsUris = new String[0];
         }
 
         // validate the access token against the OAuth2TokenValidationService OSGi service.
@@ -82,7 +83,7 @@ public class OAuth2IntrospectionEndpoint {
         accessToken.setTokenType(tokenTypeHint);
         introspectionRequest.setAccessToken(accessToken);
 
-        if (ArrayUtils.isNotEmpty(claimsUris)) {
+        if (claimsUris != null) {
             introspectionRequest.setRequiredClaimURIs(claimsUris);
         }
 
@@ -117,7 +118,7 @@ public class OAuth2IntrospectionEndpoint {
         }
 
         //provide jwt in the response only if claims are requested
-        if (introspectionResponse.getUserContext() != null && ArrayUtils.isNotEmpty(claimsUris)) {
+        if (introspectionResponse.getUserContext() != null && claimsUris != null) {
             respBuilder.setTokenString(introspectionResponse.getUserContext());
         }
 
