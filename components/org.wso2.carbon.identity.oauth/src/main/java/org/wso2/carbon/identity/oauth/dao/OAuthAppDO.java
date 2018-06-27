@@ -48,6 +48,7 @@ public class OAuthAppDO implements Serializable {
     private String idTokenEncryptionMethod;
     private String backChannelLogoutUrl;
     private String tokenType;
+    private AuthenticatedUser appOwner;
 
     public AuthenticatedUser getUser() {
         return user;
@@ -223,5 +224,15 @@ public class OAuthAppDO implements Serializable {
 
     public void setTokenType(String tokenType) {
         this.tokenType = tokenType;
+    }
+
+    public AuthenticatedUser getAppOwner() {
+
+        return appOwner;
+    }
+
+    public void setAppOwner(AuthenticatedUser appOwner) {
+
+        this.appOwner = appOwner;
     }
 }

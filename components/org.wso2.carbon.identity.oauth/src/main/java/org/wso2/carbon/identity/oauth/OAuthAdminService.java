@@ -18,7 +18,6 @@
 
 package org.wso2.carbon.identity.oauth;
 
-
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -371,12 +370,12 @@ public class OAuthAdminService extends AbstractAdmin {
             }
             throw new IdentityOAuthAdminException(errorMessage);
         }
-        String userName = CarbonContext.getThreadLocalCarbonContext().getUsername();
-        String tenantAwareUsername = MultitenantUtils.getTenantAwareUsername(userName);
         String tenantDomain = CarbonContext.getThreadLocalCarbonContext().getTenantDomain();
+        String appOwner = UserCoreUtil.removeDomainFromName(consumerAppDTO.getUsername());
+        String domainName = IdentityUtil.extractDomainFromName(consumerAppDTO.getUsername());
 
         OAuthAppDAO dao = new OAuthAppDAO();
-        OAuthAppDO oauthappdo = null;
+        OAuthAppDO oauthappdo;
         try {
             oauthappdo = dao.getAppInformation(consumerAppDTO.getOauthConsumerKey());
             if (oauthappdo == null) {
@@ -398,6 +397,7 @@ public class OAuthAdminService extends AbstractAdmin {
         }
 
         String consumerKey = consumerAppDTO.getOauthConsumerKey();
+        setApplicationOwner(tenantDomain, appOwner, domainName, oauthappdo);
         oauthappdo.setOauthConsumerKey(consumerKey);
         oauthappdo.setOauthConsumerSecret(consumerAppDTO.getOauthConsumerSecret());
         oauthappdo.setCallbackUrl(consumerAppDTO.getCallbackUrl());
@@ -440,11 +440,21 @@ public class OAuthAdminService extends AbstractAdmin {
         }
     }
 
+    private void setApplicationOwner(String tenantDomain, String appOwner, String domainName, OAuthAppDO oauthappdo) {
+
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser();
+        authenticatedUser.setUserName(appOwner);
+        authenticatedUser.setUserStoreDomain(domainName);
+        authenticatedUser.setTenantDomain(tenantDomain);
+        oauthappdo.setAppOwner(authenticatedUser);
+    }
+
     /**
      * @return
      * @throws IdentityOAuthAdminException
      */
     public String getOauthApplicationState(String consumerKey) throws IdentityOAuthAdminException {
+
         OAuthAppDAO oAuthAppDAO = new OAuthAppDAO();
         return oAuthAppDAO.getConsumerAppState(consumerKey);
     }
@@ -501,6 +511,7 @@ public class OAuthAdminService extends AbstractAdmin {
 
     private void updateAppAndRevokeTokensAndAuthzCodes(String consumerKey,
                                                        Properties properties) throws IdentityOAuthAdminException {
+
         int countToken = 0;
         try {
             Set<AccessTokenDO> activeDetailedTokens = OAuthTokenPersistenceFactory.getInstance()
@@ -790,6 +801,7 @@ public class OAuthAdminService extends AbstractAdmin {
      */
     public OAuthRevocationResponseDTO updateApproveAlwaysForAppConsentByResourceOwner(String appName, String state)
             throws IdentityOAuthAdminException {
+
         OAuthRevocationResponseDTO revokeRespDTO = new OAuthRevocationResponseDTO();
         String tenantDomain = PrivilegedCarbonContext.getThreadLocalCarbonContext().getTenantDomain();
         String tenantAwareUserName = PrivilegedCarbonContext.getThreadLocalCarbonContext().getUsername();
@@ -825,6 +837,7 @@ public class OAuthAdminService extends AbstractAdmin {
 
     private void triggerPostRevokeListeners(OAuthRevocationRequestDTO revokeRequestDTO,
                                             OAuthRevocationResponseDTO revokeRespDTO, AccessTokenDO[] accessTokenDOs) {
+
         OAuthEventInterceptor oAuthEventInterceptorProxy = OAuthComponentServiceHolder.getInstance()
                 .getOAuthEventInterceptorProxy();
 
@@ -900,6 +913,7 @@ public class OAuthAdminService extends AbstractAdmin {
      * @return true if PKCE is supported by the database, false if not
      */
     public boolean isPKCESupportEnabled() {
+
         return OAuth2Util.isPKCESupportEnabled();
     }
 
@@ -916,6 +930,7 @@ public class OAuthAdminService extends AbstractAdmin {
     }
 
     private AuthenticatedUser buildAuthenticatedUser(String tenantAwareUser, String tenantDomain) {
+
         AuthenticatedUser user = new AuthenticatedUser();
         user.setUserName(UserCoreUtil.removeDomainFromName(tenantAwareUser));
         user.setTenantDomain(tenantDomain);
@@ -924,6 +939,7 @@ public class OAuthAdminService extends AbstractAdmin {
     }
 
     private void validateTokenExpiryConfigurations(OAuthConsumerAppDTO oAuthConsumerAppDTO) {
+
         if (oAuthConsumerAppDTO.getUserAccessTokenExpiryTime() == 0) {
             oAuthConsumerAppDTO.setUserAccessTokenExpiryTime(
                     OAuthServerConfiguration.getInstance().getUserAccessTokenValidityPeriodInSeconds());
@@ -947,6 +963,7 @@ public class OAuthAdminService extends AbstractAdmin {
     }
 
     private void logOnInvalidConfig(String appName, String tokenType, long defaultValue) {
+
         if (log.isDebugEnabled()) {
             log.debug("Invalid expiry time value '0' set for " + tokenType + " in ServiceProvider: " + appName + ". "
                     + "Defaulting to expiry value: " + defaultValue + " seconds.");
@@ -954,11 +971,11 @@ public class OAuthAdminService extends AbstractAdmin {
     }
 
     /**
-     *  Get the scope validators registered by the user and filter the allowed ones.
+     * Get the scope validators registered by the user and filter the allowed ones.
      *
      * @param application Application user have registered.
      * @return List of scope validators.
-     * @throws IdentityOAuthAdminException  Identity OAuthAdmin exception.
+     * @throws IdentityOAuthAdminException Identity OAuthAdmin exception.
      */
     private String[] filterScopeValidators(OAuthConsumerAppDTO application) throws IdentityOAuthAdminException {
 
@@ -978,7 +995,7 @@ public class OAuthAdminService extends AbstractAdmin {
     /**
      * Get supported algorithms from OAuthServerConfiguration and construct an OAuthIDTokenAlgorithmDTO object.
      *
-     * @return  Constructed OAuthIDTokenAlgorithmDTO object with supported algorithms.
+     * @return Constructed OAuthIDTokenAlgorithmDTO object with supported algorithms.
      */
     public OAuthIDTokenAlgorithmDTO getSupportedIDTokenAlgorithms() {
 
