@@ -56,6 +56,7 @@ public class TokenValidationHandler {
     private Log log = LogFactory.getLog(TokenValidationHandler.class);
     private Map<String, OAuth2TokenValidator> tokenValidators = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     private static final String BUILD_FQU_FROM_SP_CONFIG = "OAuth.BuildSubjectIdentifierFromSPConfig";
+    private static final String DOT_SEPARATER = ".";
 
     private TokenValidationHandler() {
         tokenValidators.put(DefaultOAuth2TokenValidator.TOKEN_TYPE, new DefaultOAuth2TokenValidator());
@@ -494,18 +495,20 @@ public class TokenValidationHandler {
         } else {
             try {
                 consumerKey = OAuth2Util.getClientIdForAccessToken(tokenIdentifier);
+                if (consumerKey != null) {
+                    oauthTokenIssuer = OAuth2Util.getOAuthTokenIssuerForOAuthApp(consumerKey);
+                }
             } catch (IllegalArgumentException e) {
                 if (log.isDebugEnabled()) {
                     log.debug("Consumer key is not found for token identifier: " + tokenIdentifier, e);
                 }
+            } catch (InvalidOAuthClientException e) {
+                throw new IdentityOAuth2Exception(
+                        "Error while retrieving oauth issuer for the app with clientId: " + consumerKey, e);
             }
         }
 
         try {
-            if (consumerKey != null) {
-                oauthTokenIssuer = OAuth2Util.getOAuthTokenIssuerForOAuthApp(consumerKey);
-            }
-
             if (oauthTokenIssuer == null) {
                 //server level token issuer
                 oauthTokenIssuer = OAuthServerConfiguration.getInstance().getIdentityOauthTokenIssuer();
@@ -527,9 +530,6 @@ public class TokenValidationHandler {
                 }
             }
             throw new IdentityOAuth2Exception("Error while getting access token hash.", e);
-        } catch (InvalidOAuthClientException e) {
-            throw new IdentityOAuth2Exception(
-                    "Error while retrieving oauth issuer for the app with clientId: " + consumerKey, e);
         }
     }
 
@@ -541,7 +541,7 @@ public class TokenValidationHandler {
      */
     private boolean isJWT(String tokenIdentifier) {
         // JWT token contains 3 base64 encoded components separated by periods.
-        return StringUtils.countMatches(tokenIdentifier, ".") == 2;
+        return StringUtils.countMatches(tokenIdentifier, DOT_SEPARATER) == 2;
     }
 
     /**
@@ -552,7 +552,7 @@ public class TokenValidationHandler {
      */
     private boolean isIDTokenEncrypted(String idToken) {
         // Encrypted ID token contains 5 base64 encoded components separated by periods.
-        return StringUtils.countMatches(idToken, ".") == 4;
+        return StringUtils.countMatches(idToken, DOT_SEPARATER) == 4;
     }
 
 }
