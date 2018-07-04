@@ -23,6 +23,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.base.MultitenantConstants;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
+import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatedUser;
 import org.wso2.carbon.identity.application.common.model.User;
 import org.wso2.carbon.identity.base.IdentityConstants;
 import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
@@ -35,6 +36,7 @@ import org.wso2.carbon.identity.oauth2.IdentityOAuth2Exception;
 import org.wso2.carbon.identity.oauth2.dao.OAuthTokenPersistenceFactory;
 import org.wso2.carbon.identity.oauth2.model.AccessTokenDO;
 import org.wso2.carbon.identity.oauth2.model.ResourceScopeCacheEntry;
+import org.wso2.carbon.identity.oauth2.token.OAuthTokenReqMessageContext;
 import org.wso2.carbon.user.api.UserStoreException;
 import org.wso2.carbon.user.api.UserStoreManager;
 import org.wso2.carbon.user.core.service.RealmService;
@@ -221,8 +223,75 @@ public class JDBCScopeValidator extends OAuth2ScopeValidator {
         }
     }
 
+    public boolean validateScope(OAuthTokenReqMessageContext tokReqMsgCtx) throws
+            UserStoreException, IdentityOAuth2Exception {
+
+        String[] requestedScopes = tokReqMsgCtx.getScope();
+
+        //If the token is not requested for specific scopes, return true
+        if (requestedScopes == null || requestedScopes.length == 0) {
+            return true;
+        }
+        AuthenticatedUser user = tokReqMsgCtx.getAuthorizedUser();
+
+        RealmService realmService = OAuthComponentServiceHolder.getInstance().getRealmService();
+        int tenantId = realmService.getTenantManager().getTenantId(user.getTenantDomain());
+
+        if (tenantId == 0 || tenantId == -1) {
+            tenantId = IdentityTenantUtil.getTenantIdOfUser(user.getUserName());
+        }
+
+        UserStoreManager userStoreManager;
+        String[] userRoles;
+        boolean tenantFlowStarted = false;
+
+        try{
+            if(tenantId != MultitenantConstants.SUPER_TENANT_ID){
+                PrivilegedCarbonContext.startTenantFlow();
+                PrivilegedCarbonContext.getThreadLocalCarbonContext().setTenantDomain(
+                        realmService.getTenantManager().getDomain(tenantId),true);
+                tenantFlowStarted = true;
+            }
+
+            userStoreManager = realmService.getTenantUserRealm(tenantId).getUserStoreManager();
+            userRoles = userStoreManager.getRoleListOfUser(
+                    MultitenantUtils.getTenantAwareUsername(user.getUserName()));
+        } finally {
+            if (tenantFlowStarted) {
+                PrivilegedCarbonContext.endTenantFlow();
+            }
+        }
+
+        for (String scope : requestedScopes) {
+            Set<String> rolesOfScope = OAuthTokenPersistenceFactory.getInstance().getOAuthScopeDAO()
+                    .getBindingsOfScopeByScopeName(scope, tenantId);
+
+            if (rolesOfScope == null || rolesOfScope.isEmpty()) {
+                //scope is not bound with any role
+                continue;
+            }
+
+            if (userRoles == null || userRoles.length == 0) {
+                if (log.isDebugEnabled()) {
+                    log.debug("User " + user.getUserName() + " does not have required roles for scope " + scope);
+                }
+            }
+            //Check if the user still has a valid role for this scope.
+            rolesOfScope.retainAll(Arrays.asList(userRoles));
+
+            if (rolesOfScope.isEmpty()) {
+                if (log.isDebugEnabled()) {
+                    log.debug("User " + user.getUserName() + " does not have required roles for scope " + scope);
+                }
+                return false;
+            }
+        }
+        return true;
+    }
+
     @Override
     public String getValidatorName() {
         return SCOPE_VALIDATOR_NAME;
     }
+
 }
