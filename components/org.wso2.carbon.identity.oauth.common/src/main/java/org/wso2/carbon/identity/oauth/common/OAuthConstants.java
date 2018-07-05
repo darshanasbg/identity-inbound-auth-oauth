@@ -20,8 +20,6 @@ package org.wso2.carbon.identity.oauth.common;
 
 public final class OAuthConstants {
 
-    public static final String PERMISSION_APPLICATION_MGT = "/permission/admin/manage/identity/applicationmgt";
-
     //OIDC request headers.
     public static final String AMR = "amr";
     public static final String ACR = "acr";
