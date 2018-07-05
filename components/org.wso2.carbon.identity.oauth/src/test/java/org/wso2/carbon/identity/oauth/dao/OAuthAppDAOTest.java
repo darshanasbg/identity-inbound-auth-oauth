@@ -104,7 +104,7 @@ public class OAuthAppDAOTest extends TestOAuthDAOBase {
     private static final String COUNT_APPS = "SELECT count(*) FROM IDN_OAUTH_CONSUMER_APPS WHERE APP_NAME=? and " +
             "TENANT_ID=?";
 
-    private static final String BACKCHANNEL_LOGOUT="https://localhost:8090/playground2/backChannelLogout";
+    private static final String BACKCHANNEL_LOGOUT = "https://localhost:8090/playground2/backChannelLogout";
 
     @Mock
     private TenantManager mockedTenantManager;
@@ -275,7 +275,7 @@ public class OAuthAppDAOTest extends TestOAuthDAOBase {
                 }
                 appDO.setId(resultSet.getInt(9));
             }
-            preparedStatementGetValidators.setInt(1,appDO.getId());
+            preparedStatementGetValidators.setInt(1, appDO.getId());
             List<String> scopeValidators = new ArrayList<>();
             try (ResultSet rs = preparedStatementGetValidators.executeQuery()) {
                 while (rs.next()) {
@@ -297,7 +297,9 @@ public class OAuthAppDAOTest extends TestOAuthDAOBase {
                 appDO.setPkceMandatory(true);
                 appDO.setPkceSupportPlain(true);
             }
-
+            AuthenticatedUser authenticatedUser = new AuthenticatedUser();
+            appDO.setAppOwner(authenticatedUser);
+            appDO.getAppOwner().setUserName("testUser");
             appDAO.updateConsumerApplication(appDO);
 
             preparedStatement.setString(1, CONSUMER_KEY);
@@ -315,7 +317,7 @@ public class OAuthAppDAOTest extends TestOAuthDAOBase {
                     assertEquals(resultSet.getBoolean(8), true);
                 }
             }
-            preparedStatementGetValidators.setInt(1,appDO.getId());
+            preparedStatementGetValidators.setInt(1, appDO.getId());
             scopeValidators = new ArrayList<>();
             try (ResultSet rs = preparedStatementGetValidators.executeQuery()) {
                 while (rs.next()) {
@@ -342,6 +344,9 @@ public class OAuthAppDAOTest extends TestOAuthDAOBase {
             oAuthAppDO.setBackChannelLogoutUrl("CHANGED_BACKCHANNEL_LOGOUT");
 
             OAuthAppDAO AppDAO = new OAuthAppDAO();
+            AuthenticatedUser authenticatedUser = new AuthenticatedUser();
+            oAuthAppDO.setAppOwner(authenticatedUser);
+            oAuthAppDO.getAppOwner().setUserName("testUser");
             AppDAO.updateConsumerApplication(oAuthAppDO);
         }
     }
@@ -365,7 +370,6 @@ public class OAuthAppDAOTest extends TestOAuthDAOBase {
             }
         }
     }
-
 
     @Test(expectedExceptions = IdentityOAuthAdminException.class)
     public void testRemoveConsumerApplicationWithExceptions() throws Exception {
@@ -552,7 +556,7 @@ public class OAuthAppDAOTest extends TestOAuthDAOBase {
 
             final String BACK_CHANNEL_LOGOUT_URL = "https://dummy.com/logout";
             // Add OIDC properties.
-            defaultOAuthAppDO.setAudiences(new String[] {"DUMMY"});
+            defaultOAuthAppDO.setAudiences(new String[]{"DUMMY"});
             defaultOAuthAppDO.setIdTokenEncryptionEnabled(true);
             defaultOAuthAppDO.setRequestObjectSignatureValidationEnabled(true);
             defaultOAuthAppDO.setBackChannelLogoutUrl(BACK_CHANNEL_LOGOUT_URL);
