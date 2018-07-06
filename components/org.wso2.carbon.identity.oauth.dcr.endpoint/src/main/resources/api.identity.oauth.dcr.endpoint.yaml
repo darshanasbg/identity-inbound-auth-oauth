@@ -221,6 +221,10 @@ definitions:
         type: string
       url:
         type: string
+      client_id:
+        type: string
+      client_secret:
+        type: string
       contacts:
         type: array
         items:
@@ -248,6 +252,10 @@ definitions:
         items:
           type: string
       client_name:
+        type: string
+      client_id:
+        type: string
+      client_secret:
         type: string
       grant_types:
         type: array

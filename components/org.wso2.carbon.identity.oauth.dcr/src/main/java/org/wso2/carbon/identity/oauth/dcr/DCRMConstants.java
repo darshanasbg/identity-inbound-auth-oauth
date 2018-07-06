@@ -34,7 +34,10 @@ public class DCRMConstants {
         BAD_REQUEST_INVALID_REDIRECT_URI("Invalid redirect URI: %s"),
         BAD_REQUEST_INVALID_INPUT("%s"),
         NOT_FOUND_APPLICATION_WITH_ID("Application not available for given client key: %s"),
+        CONFLICT_EXISTING_CLIENT_ID("Client id %s already exist in the system"),
+        BAD_REQUEST_CLIENT_ID_VIOLATES_PATTERN("Provided client id is not adhering to the provided regex %s"),
         ERROR_CODE_UNEXPECTED("Unexpected error");
+
 
         private final String message;
 

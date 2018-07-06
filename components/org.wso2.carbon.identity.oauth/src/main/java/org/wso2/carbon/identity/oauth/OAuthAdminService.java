@@ -264,7 +264,11 @@ public class OAuthAdminService extends AbstractAdmin {
                     app.setOauthConsumerSecret(OAuthUtil.getRandomNumber());
                 } else {
                     app.setOauthConsumerKey(application.getOauthConsumerKey());
-                    app.setOauthConsumerSecret(application.getOauthConsumerSecret());
+                    if (application.getOauthConsumerSecret() != null) {
+                        app.setOauthConsumerSecret(application.getOauthConsumerSecret());
+                    } else {
+                        app.setOauthConsumerSecret(OAuthUtil.getRandomNumber());
+                    }
                 }
 
                 AuthenticatedUser user = buildAuthenticatedUser(tenantAwareUser, tenantDomain);
