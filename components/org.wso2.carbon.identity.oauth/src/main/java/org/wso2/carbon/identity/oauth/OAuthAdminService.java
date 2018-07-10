@@ -21,6 +21,7 @@ package org.wso2.carbon.identity.oauth;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.wso2.carbon.consent.mgt.core.util.ConsentUtils;
 import org.wso2.carbon.context.CarbonContext;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
 import org.wso2.carbon.core.AbstractAdmin;
@@ -64,6 +65,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static org.wso2.carbon.identity.oauth.OAuthUtil.handleError;
 
@@ -371,8 +373,6 @@ public class OAuthAdminService extends AbstractAdmin {
             throw new IdentityOAuthAdminException(errorMessage);
         }
         String tenantDomain = CarbonContext.getThreadLocalCarbonContext().getTenantDomain();
-        String appOwner = UserCoreUtil.removeDomainFromName(consumerAppDTO.getUsername());
-        String domainName = IdentityUtil.extractDomainFromName(consumerAppDTO.getUsername());
 
         OAuthAppDAO dao = new OAuthAppDAO();
         OAuthAppDO oauthappdo;
@@ -397,7 +397,7 @@ public class OAuthAdminService extends AbstractAdmin {
         }
 
         String consumerKey = consumerAppDTO.getOauthConsumerKey();
-        setApplicationOwner(tenantDomain, appOwner, domainName, oauthappdo);
+        setApplicationOwner(tenantDomain, consumerAppDTO, oauthappdo);
         oauthappdo.setOauthConsumerKey(consumerKey);
         oauthappdo.setOauthConsumerSecret(consumerAppDTO.getOauthConsumerSecret());
         oauthappdo.setCallbackUrl(consumerAppDTO.getCallbackUrl());
@@ -440,13 +440,15 @@ public class OAuthAdminService extends AbstractAdmin {
         }
     }
 
-    private void setApplicationOwner(String tenantDomain, String appOwner, String domainName, OAuthAppDO oauthappdo) {
+    private void setApplicationOwner(String tenantDomain, OAuthConsumerAppDTO oAuthConsumerAppDTO, OAuthAppDO oauthappdo) {
 
-        AuthenticatedUser authenticatedUser = new AuthenticatedUser();
-        authenticatedUser.setUserName(appOwner);
-        authenticatedUser.setUserStoreDomain(domainName);
-        authenticatedUser.setTenantDomain(tenantDomain);
-        oauthappdo.setAppOwner(authenticatedUser);
+        if (oAuthConsumerAppDTO != null && oAuthConsumerAppDTO.getUsername() != null) {
+            AuthenticatedUser authenticatedUser = new AuthenticatedUser();
+            authenticatedUser.setUserName(UserCoreUtil.removeDomainFromName(oAuthConsumerAppDTO.getUsername()));
+            authenticatedUser.setUserStoreDomain(IdentityUtil.extractDomainFromName(oAuthConsumerAppDTO.getUsername()));
+            authenticatedUser.setTenantDomain(tenantDomain);
+            oauthappdo.setAppOwner(authenticatedUser);
+        }
     }
 
     /**

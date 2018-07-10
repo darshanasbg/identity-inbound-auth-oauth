@@ -476,9 +476,14 @@ public class OAuthAppDAO {
                 return false;
             }
             boolean isUserExist = realm.getUserStoreManager().isExistingUser(usernameWithDomain);
+            if (!isUserExist) {
+                throw new IdentityOAuthAdminException("User validation failed for owner update in the application: " +
+                        oAuthAppDO.getApplicationName());
+            }
+
             boolean isPermitted = realm.getAuthorizationManager().isUserAuthorized(userName, PERMISSION_APPLICATION_MGT,
                     UserMgtConstants.EXECUTE_ACTION);
-            if (!isUserExist || !isPermitted) {
+            if (!isPermitted) {
                 throw new IdentityOAuthAdminException("User validation failed for owner update in the application: " +
                         oAuthAppDO.getApplicationName());
             }
