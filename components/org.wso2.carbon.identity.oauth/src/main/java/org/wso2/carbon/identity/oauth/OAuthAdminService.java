@@ -371,8 +371,6 @@ public class OAuthAdminService extends AbstractAdmin {
             throw new IdentityOAuthAdminException(errorMessage);
         }
         String tenantDomain = CarbonContext.getThreadLocalCarbonContext().getTenantDomain();
-        String appOwner = UserCoreUtil.removeDomainFromName(consumerAppDTO.getUsername());
-        String domainName = IdentityUtil.extractDomainFromName(consumerAppDTO.getUsername());
 
         OAuthAppDAO dao = new OAuthAppDAO();
         OAuthAppDO oauthappdo;
@@ -397,7 +395,7 @@ public class OAuthAdminService extends AbstractAdmin {
         }
 
         String consumerKey = consumerAppDTO.getOauthConsumerKey();
-        setApplicationOwner(tenantDomain, appOwner, domainName, oauthappdo);
+        setApplicationOwner(tenantDomain, consumerAppDTO, oauthappdo);
         oauthappdo.setOauthConsumerKey(consumerKey);
         oauthappdo.setOauthConsumerSecret(consumerAppDTO.getOauthConsumerSecret());
         oauthappdo.setCallbackUrl(consumerAppDTO.getCallbackUrl());
@@ -440,13 +438,15 @@ public class OAuthAdminService extends AbstractAdmin {
         }
     }
 
-    private void setApplicationOwner(String tenantDomain, String appOwner, String domainName, OAuthAppDO oauthappdo) {
+    private void setApplicationOwner(String tenantDomain, OAuthConsumerAppDTO oAuthConsumerAppDTO, OAuthAppDO oauthappdo) {
 
-        AuthenticatedUser authenticatedUser = new AuthenticatedUser();
-        authenticatedUser.setUserName(appOwner);
-        authenticatedUser.setUserStoreDomain(domainName);
-        authenticatedUser.setTenantDomain(tenantDomain);
-        oauthappdo.setAppOwner(authenticatedUser);
+        if (oAuthConsumerAppDTO != null && oAuthConsumerAppDTO.getUsername() != null) {
+            AuthenticatedUser authenticatedUser = new AuthenticatedUser();
+            authenticatedUser.setUserName(UserCoreUtil.removeDomainFromName(oAuthConsumerAppDTO.getUsername()));
+            authenticatedUser.setUserStoreDomain(IdentityUtil.extractDomainFromName(oAuthConsumerAppDTO.getUsername()));
+            authenticatedUser.setTenantDomain(tenantDomain);
+            oauthappdo.setAppOwner(authenticatedUser);
+        }
     }
 
     /**

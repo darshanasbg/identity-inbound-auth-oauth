@@ -476,11 +476,16 @@ public class OAuthAppDAO {
                 return false;
             }
             boolean isUserExist = realm.getUserStoreManager().isExistingUser(usernameWithDomain);
+            if (!isUserExist) {
+                throw new IdentityOAuthAdminException("User validation failed for owner update in the application: " +
+                        oAuthAppDO.getApplicationName() + " as user is not existing.");
+            }
+
             boolean isPermitted = realm.getAuthorizationManager().isUserAuthorized(userName, PERMISSION_APPLICATION_MGT,
                     UserMgtConstants.EXECUTE_ACTION);
-            if (!isUserExist || !isPermitted) {
+            if (!isPermitted) {
                 throw new IdentityOAuthAdminException("User validation failed for owner update in the application: " +
-                        oAuthAppDO.getApplicationName());
+                        oAuthAppDO.getApplicationName() + " as the user does not have required permissions.");
             }
         } catch (UserStoreException e) {
             throw handleError("User validation failed for owner update in the application: " +
