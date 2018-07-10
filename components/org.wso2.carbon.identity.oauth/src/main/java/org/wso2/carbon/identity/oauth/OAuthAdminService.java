@@ -135,7 +135,7 @@ public class OAuthAdminService extends AbstractAdmin {
                 dto.setOAuthVersion(app.getOauthVersion());
                 dto.setGrantTypes(app.getGrantTypes());
                 dto.setScopeValidators(app.getScopeValidators());
-                dto.setUsername(app.getUser().toString());
+                dto.setUsername(UserCoreUtil.addDomainToName(app.getUser().getUserName(), app.getUser().getUserStoreDomain()));
                 dto.setPkceMandatory(app.isPkceMandatory());
                 dto.setPkceSupportPlain(app.isPkceSupportPlain());
                 dto.setUserAccessTokenExpiryTime(app.getUserAccessTokenExpiryTime());
@@ -645,7 +645,8 @@ public class OAuthAdminService extends AbstractAdmin {
                                 appDO = appDAO.getAppInformation(scopedToken.getConsumerKey());
                                 appDTO.setOauthConsumerKey(scopedToken.getConsumerKey());
                                 appDTO.setApplicationName(appDO.getApplicationName());
-                                appDTO.setUsername(appDO.getUser().toString());
+                                appDTO.setUsername(UserCoreUtil.addDomainToName(appDO.getUser().getUserName(), appDO
+                                        .getUser().getUserStoreDomain()));
                                 appDTO.setGrantTypes(appDO.getGrantTypes());
                                 appDTO.setScopeValidators(appDO.getScopeValidators());
                                 appDTO.setPkceMandatory(appDO.isPkceMandatory());
