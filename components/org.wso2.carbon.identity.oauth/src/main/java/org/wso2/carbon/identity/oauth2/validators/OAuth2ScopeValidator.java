@@ -52,8 +52,10 @@ public abstract class OAuth2ScopeValidator {
      * @return
      * @throws IdentityOAuth2Exception
      */
-    public abstract boolean validateScope(OAuthTokenReqMessageContext tokReqMsgCtx) throws
-            IdentityOAuth2Exception, UserStoreException;
+    public boolean validateScope(OAuthTokenReqMessageContext tokReqMsgCtx) throws
+            IdentityOAuth2Exception, UserStoreException {
+        return true;
+    }
 
     public Set<String> getScopesToSkip() {
         return scopesToSkip;

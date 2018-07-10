@@ -67,6 +67,7 @@ public abstract class AbstractAuthorizationGrantHandler implements Authorization
     protected OAuthCache oauthCache;
     protected static final String EXISTING_TOKEN_ISSUED = "existingTokenUsed";
     protected static final int SECONDS_TO_MILISECONDS_FACTOR = 1000;
+    private static final String OAUTH_APP_PROPERTY = "OAuthAppDO";
 
     @Override
     public void init() throws IdentityOAuth2Exception {
@@ -221,13 +222,17 @@ public abstract class AbstractAuthorizationGrantHandler implements Authorization
             throws IdentityOAuth2Exception {
 
         String[] scopeValidators;
-        OAuthAppDO oAuthAppDO = (OAuthAppDO) tokenReqMsgContext.getProperty("OAuthAppDO");
+        OAuthAppDO oAuthAppDO = (OAuthAppDO) tokenReqMsgContext.getProperty(OAUTH_APP_PROPERTY);
+
+        if (oAuthAppDO == null) {
+            throw new IdentityOAuth2Exception("OAuthAppDO property not found in the message context");
+        }
         scopeValidators = oAuthAppDO.getScopeValidators();
 
         if (scopeValidators == null || scopeValidators.length == 0) {
             if (log.isDebugEnabled()) {
-                log.debug(String.format("There is no scope validator registered for %s@%s", oAuthAppDO.getApplicationName(),
-                        OAuth2Util.getTenantDomainOfOauthApp(oAuthAppDO)));
+                log.debug(String.format("There is no scope validator registered for %s@%s",
+                        oAuthAppDO.getApplicationName(), OAuth2Util.getTenantDomainOfOauthApp(oAuthAppDO)));
             }
             return true;
         }
