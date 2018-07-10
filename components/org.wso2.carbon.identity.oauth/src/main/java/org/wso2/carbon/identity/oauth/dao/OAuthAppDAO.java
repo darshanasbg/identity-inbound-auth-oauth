@@ -510,7 +510,7 @@ public class OAuthAppDAO {
                     setValuesToStatementWithPKCENoOwnerUpdate(oauthAppDO, prepStmt);
                 } else if (!OAuth2ServiceComponentHolder.isPkceEnabled() && isUserValidForOwnerUpdate) {
                     setValuesToStatementWithOwnerUpdateNoPKCE(oauthAppDO, prepStmt);
-                } else if (!OAuth2ServiceComponentHolder.isPkceEnabled() && isUserValidForOwnerUpdate) {
+                } else if (!OAuth2ServiceComponentHolder.isPkceEnabled() && !isUserValidForOwnerUpdate) {
                     setValuesToStatementWithNoPKCEAndNoOwnerUpdate(oauthAppDO, prepStmt);
                 }
                 int count = prepStmt.executeUpdate();
