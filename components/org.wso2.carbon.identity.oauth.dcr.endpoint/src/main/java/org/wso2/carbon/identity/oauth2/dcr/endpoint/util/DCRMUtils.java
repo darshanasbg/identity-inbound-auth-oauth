@@ -54,6 +54,8 @@ public class DCRMUtils {
         appRegistrationRequest.setRedirectUris(registrationRequestDTO.getRedirectUris());
         appRegistrationRequest.setGrantTypes(registrationRequestDTO.getGrantTypes());
         appRegistrationRequest.setTokenType(registrationRequestDTO.getTokenType());
+        appRegistrationRequest.setConsumerKey(registrationRequestDTO.getClientId());
+        appRegistrationRequest.setConsumerSecret(registrationRequestDTO.getClientSecret());
         return appRegistrationRequest;
 
     }
