@@ -33,7 +33,13 @@ public class RegistrationRequestDTO  {
   
   
   private String url = null;
-  
+
+
+  private String clientId = null;
+
+
+  private String clientSecret = null;
+
   
   private List<String> contacts = new ArrayList<String>();
   
@@ -121,6 +127,30 @@ public class RegistrationRequestDTO  {
     this.url = url;
   }
 
+
+  /**
+   **/
+  @ApiModelProperty(value = "")
+  @JsonProperty("client_id")
+  public String getClientId() {
+    return clientId;
+  }
+  public void setClientId(String clientId) {
+    this.clientId = clientId;
+  }
+
+
+  /**
+   **/
+  @ApiModelProperty(value = "")
+  @JsonProperty("client_secret")
+  public String getClientSecret() {
+    return clientSecret;
+  }
+  public void setClientSecret(String clientSecret) {
+    this.clientSecret = clientSecret;
+  }
+
   
   /**
    **/
@@ -191,6 +221,8 @@ public class RegistrationRequestDTO  {
     sb.append("  application_type: ").append(applicationType).append("\n");
     sb.append("  jwks_uri: ").append(jwksUri).append("\n");
     sb.append("  url: ").append(url).append("\n");
+    sb.append("  client_id: ").append(clientId).append("\n");
+    sb.append("  client_secret: ").append(clientSecret).append("\n");
     sb.append("  contacts: ").append(contacts).append("\n");
     sb.append("  post_logout_redirect_uris: ").append(postLogoutRedirectUris).append("\n");
     sb.append("  request_uris: ").append(requestUris).append("\n");

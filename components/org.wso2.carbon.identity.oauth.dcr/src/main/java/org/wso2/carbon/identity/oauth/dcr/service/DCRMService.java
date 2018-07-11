@@ -31,6 +31,7 @@ import org.wso2.carbon.identity.oauth.IdentityOAuthAdminException;
 import org.wso2.carbon.identity.oauth.OAuthAdminService;
 import org.wso2.carbon.identity.oauth.common.OAuthConstants;
 import org.wso2.carbon.identity.oauth.common.exception.InvalidOAuthClientException;
+import org.wso2.carbon.identity.oauth.config.OAuthServerConfiguration;
 import org.wso2.carbon.identity.oauth.dcr.DCRMConstants;
 import org.wso2.carbon.identity.oauth.dcr.bean.Application;
 import org.wso2.carbon.identity.oauth.dcr.bean.ApplicationRegistrationRequest;
@@ -186,6 +187,12 @@ public class DCRMService {
             throw DCRMUtils.generateClientException(DCRMConstants.ErrorMessages.CONFLICT_EXISTING_APPLICATION, spName);
         }
 
+        if (StringUtils.isNotEmpty(registrationRequest.getConsumerKey()) && isClientIdExist(
+                registrationRequest.getConsumerKey())) {
+            throw DCRMUtils.generateClientException(DCRMConstants.ErrorMessages.CONFLICT_EXISTING_CLIENT_ID,
+                    registrationRequest.getConsumerKey());
+        }
+
         // Create a service provider.
         ServiceProvider serviceProvider = createServiceProvider(applicationOwner, tenantDomain, spName);
 
@@ -263,6 +270,21 @@ public class DCRMService {
         oAuthConsumerApp.setGrantTypes(grantType);
         oAuthConsumerApp.setOAuthVersion(OAUTH_VERSION);
         oAuthConsumerApp.setTokenType(registrationRequest.getTokenType());
+
+        if (StringUtils.isNotEmpty(registrationRequest.getConsumerKey())) {
+            String clientIdRegex = OAuthServerConfiguration.getInstance().getClientIdValidationRegex();
+            if (DCRMUtils.isRegexValidated(registrationRequest.getConsumerKey(), clientIdRegex)) {
+                oAuthConsumerApp.setOauthConsumerKey(registrationRequest.getConsumerKey());
+            } else {
+                throw DCRMUtils.generateClientException(DCRMConstants.ErrorMessages.BAD_REQUEST_CLIENT_ID_VIOLATES_PATTERN,
+                        clientIdRegex);
+            }
+        }
+
+        if (StringUtils.isNotEmpty(registrationRequest.getConsumerSecret())) {
+            oAuthConsumerApp.setOauthConsumerSecret(registrationRequest.getConsumerSecret());
+        }
+
         if (log.isDebugEnabled()) {
             log.debug("Creating OAuth Application: " + spName + " in tenant: " + tenantDomain);
         }
@@ -330,10 +352,22 @@ public class DCRMService {
         try {
             serviceProvider = getServiceProvider(serviceProviderName, tenantDomain);
         } catch (DCRMException e) {
-            log.error("Error while retriving service provider: " + serviceProviderName + " in tenant: " + tenantDomain);
+            log.error("Error while retrieving service provider: " + serviceProviderName + " in tenant: " + tenantDomain);
         }
 
         return serviceProvider != null;
+    }
+
+    private boolean isClientIdExist(String clientId) {
+
+        OAuthConsumerAppDTO app = null;
+        try {
+            app = getApplicationById(clientId);
+        } catch (DCRMException e) {
+            log.error("Error while retrieving oauth application with client id: " + clientId);
+        }
+
+        return app != null;
     }
 
     private ServiceProvider getServiceProvider(String applicationName, String tenantDomain) throws DCRMException {
