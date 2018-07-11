@@ -25,6 +25,7 @@ import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.PlainJWT;
+import com.nimbusds.jwt.ReadOnlyJWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.Charsets;
@@ -76,7 +77,9 @@ import java.util.Map;
 import java.util.SortedMap;
 import java.util.StringTokenizer;
 import java.util.TreeSet;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.text.ParseException;
 
 /**
  * This class represents the JSON Web Token generator.
@@ -117,6 +120,7 @@ public class JWTTokenGenerator implements AuthorizationContextTokenGenerator {
 
     private boolean useMultiValueSeparator = true;
 
+    private final static String JWT_TOKEN_TYPE = "JWT";
 
     //constructor for testing purposes
     public JWTTokenGenerator(boolean includeClaims, boolean enableSigning) {
@@ -222,6 +226,18 @@ public class JWTTokenGenerator implements AuthorizationContextTokenGenerator {
         claimsSet.setClaim(API_GATEWAY_ID+"/subscriber",subscriber);
         claimsSet.setClaim(API_GATEWAY_ID+"/applicationname",applicationName);
         claimsSet.setClaim(API_GATEWAY_ID+"/enduser",authzUser);
+        claimsSet.setJWTID(UUID.randomUUID().toString());
+
+        if (JWT_TOKEN_TYPE.equals(messageContext.getRequestDTO().getAccessToken().getTokenType())) {
+            // Set audience provided from requesting JWT
+            try {
+                SignedJWT signedJWT = getSignedJWT(messageContext.getRequestDTO().getAccessToken().getIdentifier());
+                ReadOnlyJWTClaimsSet readOnlyClaimsSet = signedJWT.getJWTClaimsSet();
+                claimsSet.setAudience(readOnlyClaimsSet.getAudience());
+            } catch (ParseException e) {
+                log.error("Error while getting jwt claims from incoming JWT: " + e);
+            }
+        }
 
         if(claimsRetriever != null){
 
@@ -562,5 +578,9 @@ public class JWTTokenGenerator implements AuthorizationContextTokenGenerator {
                       "returned", e);
         }
         return null;
+    }
+
+    private SignedJWT getSignedJWT(String tokenIdentifier) throws ParseException {
+        return SignedJWT.parse(tokenIdentifier);
     }
 }
