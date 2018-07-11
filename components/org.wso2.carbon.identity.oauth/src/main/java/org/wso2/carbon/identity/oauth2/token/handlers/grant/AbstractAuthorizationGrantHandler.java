@@ -19,6 +19,7 @@
 package org.wso2.carbon.identity.oauth2.token.handlers.grant;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -225,11 +226,18 @@ public abstract class AbstractAuthorizationGrantHandler implements Authorization
         OAuthAppDO oAuthAppDO = (OAuthAppDO) tokenReqMsgContext.getProperty(OAUTH_APP_PROPERTY);
 
         if (oAuthAppDO == null) {
-            throw new IdentityOAuth2Exception("OAuthAppDO property not found in the message context");
+            try {
+                oAuthAppDO = OAuth2Util.getAppInformationByClientId(
+                        tokenReqMsgContext.getOauth2AccessTokenReqDTO().getClientId());
+            } catch (InvalidOAuthClientException e) {
+                throw new IdentityOAuth2Exception("Error while retrieving OAuth application from DB for client id: " +
+                        tokenReqMsgContext.getOauth2AccessTokenReqDTO().getClientId(), e);
+            }
         }
+
         scopeValidators = oAuthAppDO.getScopeValidators();
 
-        if (scopeValidators == null || scopeValidators.length == 0) {
+        if (ArrayUtils.isEmpty(scopeValidators)) {
             if (log.isDebugEnabled()) {
                 log.debug(String.format("There is no scope validator registered for %s@%s",
                         oAuthAppDO.getApplicationName(), OAuth2Util.getTenantDomainOfOauthApp(oAuthAppDO)));

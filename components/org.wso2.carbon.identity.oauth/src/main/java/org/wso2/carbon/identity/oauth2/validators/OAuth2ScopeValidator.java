@@ -49,7 +49,8 @@ public abstract class OAuth2ScopeValidator {
      * Method to validate scopes in the token request against the roles of user
      *
      * @param tokReqMsgCtx
-     * @return
+     * @return - true if the user has enough permission to generate tokens with requested scopes or
+     * no scopes are requested, otherwise false
      * @throws IdentityOAuth2Exception
      */
     public boolean validateScope(OAuthTokenReqMessageContext tokReqMsgCtx) throws

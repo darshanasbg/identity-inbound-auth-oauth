@@ -18,6 +18,8 @@
 
 package org.wso2.carbon.identity.oauth2.validators;
 
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -61,6 +63,7 @@ public class JDBCScopeValidator extends OAuth2ScopeValidator {
     // If any changes are taking place in that these should also be updated accordingly.
     public static final String CHECK_ROLES_FROM_SAML_ASSERTION = "checkRolesFromSamlAssertion";
     private static final String SCOPE_VALIDATOR_NAME = "Role based scope validator";
+    private static final String OPENID = "openid";
 
     Log log = LogFactory.getLog(JDBCScopeValidator.class);
 
@@ -147,7 +150,7 @@ public class JDBCScopeValidator extends OAuth2ScopeValidator {
             int tenantId = getTenantId(authzUser);
             String[] userRoles = getUserRoles(authzUser);
 
-            if (userRoles == null || userRoles.length == 0) {
+            if (ArrayUtils.isEmpty(userRoles)) {
                 if(log.isDebugEnabled()){
                     log.debug("No roles associated for the user " + authzUser.getUserName());
                 }
@@ -168,9 +171,11 @@ public class JDBCScopeValidator extends OAuth2ScopeValidator {
             UserStoreException, IdentityOAuth2Exception {
 
         String[] requestedScopes = tokReqMsgCtx.getScope();
+        // Remove openid scope from the list if available
+        requestedScopes = (String[]) ArrayUtils.removeElement(requestedScopes, OPENID);
 
         //If the token is not requested for specific scopes, return true
-        if (requestedScopes == null || requestedScopes.length == 0) {
+        if (ArrayUtils.isEmpty(requestedScopes)) {
             return true;
         }
 
@@ -215,7 +220,7 @@ public class JDBCScopeValidator extends OAuth2ScopeValidator {
         Set<String> rolesOfScope = OAuthTokenPersistenceFactory.getInstance().getOAuthScopeDAO().
                 getBindingsOfScopeByScopeName(scopeName, tenantId);
 
-        if (rolesOfScope == null || rolesOfScope.isEmpty()) {
+        if (CollectionUtils.isEmpty(rolesOfScope)) {
             if (log.isDebugEnabled()) {
                 log.debug("Did not find any roles associated to the scope " + scopeName);
             }
@@ -224,17 +229,15 @@ public class JDBCScopeValidator extends OAuth2ScopeValidator {
 
         if (log.isDebugEnabled()) {
             StringBuilder logMessage = new StringBuilder("Found roles of scope '" + scopeName + "' ");
-            for (String role : rolesOfScope) {
-                logMessage.append(role);
-                logMessage.append(", ");
-            }
+            logMessage.append(String.join(",", rolesOfScope));
             log.debug(logMessage.toString());
         }
 
-        if (userRoles == null || userRoles.length == 0) {
+        if (ArrayUtils.isEmpty(userRoles)) {
             if (log.isDebugEnabled()) {
                 log.debug("User does not have required roles for scope " + scopeName);
             }
+            return false;
         }
         //Check if the user still has a valid role for this scope.
         rolesOfScope.retainAll(Arrays.asList(userRoles));
@@ -274,15 +277,12 @@ public class JDBCScopeValidator extends OAuth2ScopeValidator {
             }
         }
 
-        if (userRoles != null && userRoles.length > 0) {
+        if (ArrayUtils.isNotEmpty(userRoles)) {
             if (log.isDebugEnabled()) {
                 StringBuilder logMessage = new StringBuilder("Found roles of user ");
                 logMessage.append(user.getUserName());
                 logMessage.append(" ");
-                for (String role : userRoles) {
-                    logMessage.append(role);
-                    logMessage.append(", ");
-                }
+                logMessage.append(String.join(",", userRoles));
                 log.debug(logMessage.toString());
             }
         }
