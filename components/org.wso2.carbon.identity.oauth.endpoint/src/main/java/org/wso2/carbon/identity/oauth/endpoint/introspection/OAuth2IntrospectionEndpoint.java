@@ -69,10 +69,10 @@ public class OAuth2IntrospectionEndpoint {
             return Response.status(Response.Status.BAD_REQUEST).entity("{\"error\": \"Invalid input\"}").build();
         }
 
-        String[] claimsUris = null;
+        String[] claimsUris;
         if (StringUtils.isNotEmpty(requiredClaims)) {
             claimsUris = requiredClaims.split(",");
-        } else if (requiredClaims != null) {
+        } else {
             claimsUris = new String[0];
         }
 
@@ -82,10 +82,7 @@ public class OAuth2IntrospectionEndpoint {
         accessToken.setIdentifier(token);
         accessToken.setTokenType(tokenTypeHint);
         introspectionRequest.setAccessToken(accessToken);
-
-        if (claimsUris != null) {
-            introspectionRequest.setRequiredClaimURIs(claimsUris);
-        }
+        introspectionRequest.setRequiredClaimURIs(claimsUris);
 
         OAuth2TokenValidationService tokenService = (OAuth2TokenValidationService) PrivilegedCarbonContext
                 .getThreadLocalCarbonContext().getOSGiService(OAuth2TokenValidationService.class);
@@ -118,7 +115,7 @@ public class OAuth2IntrospectionEndpoint {
         }
 
         //provide jwt in the response only if claims are requested
-        if (introspectionResponse.getUserContext() != null && claimsUris != null) {
+        if (introspectionResponse.getUserContext() != null && requiredClaims != null) {
             respBuilder.setTokenString(introspectionResponse.getUserContext());
         }
 

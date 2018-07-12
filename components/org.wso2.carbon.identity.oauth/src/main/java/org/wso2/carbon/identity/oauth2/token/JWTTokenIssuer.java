@@ -393,10 +393,15 @@ public class JWTTokenIssuer extends OauthTokenIssuerImpl {
         String issuer = OAuth2Util.getIDTokenIssuer();
         long curTimeInMillis = Calendar.getInstance().getTimeInMillis();
 
+        String sub = user.getAuthenticatedSubjectIdentifier();
+        if (StringUtils.isEmpty(sub)) {
+            sub = user.toFullQualifiedUsername();
+        }
+
         // Set the default claims.
         JWTClaimsSet jwtClaimsSet = new JWTClaimsSet();
         jwtClaimsSet.setIssuer(issuer);
-        jwtClaimsSet.setSubject(user.getAuthenticatedSubjectIdentifier());
+        jwtClaimsSet.setSubject(sub);
         jwtClaimsSet.setClaim(AUTHORIZATION_PARTY, consumerKey);
         jwtClaimsSet.setExpirationTime(new Date(curTimeInMillis + accessTokenLifeTimeInMillis));
         jwtClaimsSet.setIssueTime(new Date(curTimeInMillis));
