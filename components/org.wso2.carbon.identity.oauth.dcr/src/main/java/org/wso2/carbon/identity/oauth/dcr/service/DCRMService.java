@@ -110,8 +110,8 @@ public class DCRMService {
         if (StringUtils.isNotEmpty(clientName)) {
             // Regex validation of the application name.
             if (!DCRMUtils.isRegexValidated(clientName)) {
-                throw new DCRMException("The Application name: " + clientName + " is not valid! It is not adhering to" +
-                        " the regex: " + DCRConstants.APP_NAME_VALIDATING_REGEX);
+                throw DCRMUtils.generateClientException(DCRMConstants.ErrorMessages.BAD_REQUEST_INVALID_SP_NAME,
+                        DCRConstants.APP_NAME_VALIDATING_REGEX, null);
             }
             sp.setApplicationName(clientName);
             updateServiceProvider(sp, tenantDomain, applicationOwner);
@@ -122,8 +122,8 @@ public class DCRMService {
             if (StringUtils.isNotEmpty(clientName)) {
                 // Regex validation of the application name.
                 if (!DCRMUtils.isRegexValidated(clientName)) {
-                    throw new DCRMException("The Application name: " + clientName + " is not valid! It is not adhering to" +
-                            " the regex: " + DCRConstants.APP_NAME_VALIDATING_REGEX);
+                    throw DCRMUtils.generateClientException(DCRMConstants.ErrorMessages.BAD_REQUEST_INVALID_SP_NAME,
+                            DCRConstants.APP_NAME_VALIDATING_REGEX, null);
                 }
                 appDTO.setApplicationName(clientName);
             }
@@ -178,8 +178,8 @@ public class DCRMService {
 
         // Regex validation of the application name.
         if (!DCRMUtils.isRegexValidated(spName)) {
-            throw new DCRMException("The Application name: " + spName + " is not valid! It is not adhering to" +
-                    " the regex: " + DCRConstants.APP_NAME_VALIDATING_REGEX);
+            throw DCRMUtils.generateClientException(DCRMConstants.ErrorMessages.BAD_REQUEST_INVALID_SP_NAME,
+                    DCRConstants.APP_NAME_VALIDATING_REGEX, null);
         }
 
         // Check whether a service provider already exists for the name we are trying to register the OAuth app with.
