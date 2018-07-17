@@ -37,6 +37,7 @@ import org.wso2.carbon.identity.oauth.dcr.bean.Application;
 import org.wso2.carbon.identity.oauth.dcr.bean.ApplicationRegistrationRequest;
 import org.wso2.carbon.identity.oauth.dcr.bean.ApplicationUpdateRequest;
 import org.wso2.carbon.identity.oauth.dcr.exception.DCRMException;
+import org.wso2.carbon.identity.oauth.dcr.exception.DCRMServerException;
 import org.wso2.carbon.identity.oauth.dcr.internal.DCRDataHolder;
 import org.wso2.carbon.identity.oauth.dcr.util.DCRConstants;
 import org.wso2.carbon.identity.oauth.dcr.util.DCRMUtils;
@@ -65,7 +66,56 @@ public class DCRMService {
      * @throws DCRMException
      */
     public Application getApplication(String clientId) throws DCRMException {
+
+        if (!isUserAuthorized(clientId)) {
+            throw DCRMUtils.generateClientException(
+                    DCRMConstants.ErrorMessages.FORBIDDEN_UNAUTHORIZED_USER, clientId);
+        }
         return buildResponse(getApplicationById(clientId));
+    }
+
+    /**
+     * Get OAuth2/OIDC application information with client name
+     *
+     * @param clientName
+     * @return Application
+     * @throws DCRMException
+     */
+    public Application getApplicationByName(String clientName) throws DCRMException {
+
+        if (StringUtils.isEmpty(clientName)) {
+            throw DCRMUtils.generateClientException(
+                    DCRMConstants.ErrorMessages.BAD_REQUEST_INSUFFICIENT_DATA, null);
+        }
+
+        String tenantDomain = PrivilegedCarbonContext.getThreadLocalCarbonContext().getTenantDomain();
+        if (!isServiceProviderExist(clientName, tenantDomain)) {
+            throw DCRMUtils.generateClientException(
+                    DCRMConstants.ErrorMessages.NOT_FOUND_APPLICATION_WITH_NAME, clientName);
+        }
+
+        try {
+            // Need to check whether logged in user owns the app
+            OAuthConsumerAppDTO[] oAuthConsumerAppDTOS = oAuthAdminService.getAllOAuthApplicationData();
+            boolean userAuthorized = false;
+            for (OAuthConsumerAppDTO appDTO : oAuthConsumerAppDTOS) {
+                if (clientName.equals(appDTO.getApplicationName())) {
+                    userAuthorized =true;
+                    break;
+                }
+            }
+            if (!userAuthorized) {
+                throw DCRMUtils.generateClientException(
+                        DCRMConstants.ErrorMessages.FORBIDDEN_UNAUTHORIZED_USER, clientName);
+            }
+            OAuthConsumerAppDTO oAuthConsumerAppDTO =
+                    oAuthAdminService.getOAuthApplicationDataByAppName(clientName);
+            return buildResponse(oAuthConsumerAppDTO);
+        } catch (IdentityOAuthAdminException e) {
+            throw DCRMUtils.generateServerException(
+                    DCRMConstants.ErrorMessages.FAILED_TO_GET_APPLICATION, clientName, e);
+        }
+
     }
 
     /**
@@ -463,5 +513,23 @@ public class DCRMService {
             regexPattern.append(")");
         }
         return regexPattern.toString();
+    }
+
+    private boolean isUserAuthorized(String clientId) throws DCRMServerException {
+
+        OAuthConsumerAppDTO[] oAuthConsumerAppDTOS;
+        try {
+            // Get applications owned by the user
+            oAuthConsumerAppDTOS = oAuthAdminService.getAllOAuthApplicationData();
+            for (OAuthConsumerAppDTO appDTO : oAuthConsumerAppDTOS) {
+                if (clientId.equals(appDTO.getOauthConsumerKey())) {
+                    return true;
+                }
+            }
+        } catch (IdentityOAuthAdminException e) {
+            throw DCRMUtils.generateServerException(
+                    DCRMConstants.ErrorMessages.FAILED_TO_GET_APPLICATION_BY_ID, clientId, e);
+        }
+        return false;
     }
 }
