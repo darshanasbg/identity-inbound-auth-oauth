@@ -18,6 +18,7 @@
 
 package org.wso2.carbon.identity.oauth2.validators;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
@@ -37,9 +38,10 @@ import org.wso2.carbon.identity.oauth2.dto.OAuth2TokenValidationRequestDTO;
 import org.wso2.carbon.identity.oauth2.dto.OAuth2TokenValidationResponseDTO;
 import org.wso2.carbon.identity.oauth2.internal.OAuth2ServiceComponentHolder;
 import org.wso2.carbon.identity.oauth2.model.AccessTokenDO;
+import org.wso2.carbon.identity.oauth2.token.JWTTokenIssuer;
 import org.wso2.carbon.identity.oauth2.token.OauthTokenIssuer;
 import org.wso2.carbon.identity.oauth2.util.OAuth2Util;
-import org.wso2.carbon.user.core.util.UserCoreUtil;
+
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -54,6 +56,7 @@ public class TokenValidationHandler {
     private Log log = LogFactory.getLog(TokenValidationHandler.class);
     private Map<String, OAuth2TokenValidator> tokenValidators = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     private static final String BUILD_FQU_FROM_SP_CONFIG = "OAuth.BuildSubjectIdentifierFromSPConfig";
+    private static final String DOT_SEPARATER = ".";
 
     private TokenValidationHandler() {
         tokenValidators.put(DefaultOAuth2TokenValidator.TOKEN_TYPE, new DefaultOAuth2TokenValidator());
@@ -477,15 +480,40 @@ public class TokenValidationHandler {
     }
 
     /**
-     * @param tokenIdentifier
+     * Find access token for token validation
+     *
+     * @param tokenIdentifier access token data object from the validation request
      * @return
      * @throws IdentityOAuth2Exception
      */
     private AccessTokenDO findAccessToken(String tokenIdentifier) throws IdentityOAuth2Exception {
+
         String consumerKey = null;
+        OauthTokenIssuer oauthTokenIssuer = null;
+        if (isJWT(tokenIdentifier) || isIDTokenEncrypted(tokenIdentifier)) {
+            oauthTokenIssuer = new JWTTokenIssuer();
+        } else {
+            try {
+                consumerKey = OAuth2Util.getClientIdForAccessToken(tokenIdentifier);
+                if (consumerKey != null) {
+                    oauthTokenIssuer = OAuth2Util.getOAuthTokenIssuerForOAuthApp(consumerKey);
+                }
+            } catch (IllegalArgumentException e) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Consumer key is not found for token identifier: " + tokenIdentifier, e);
+                }
+            } catch (InvalidOAuthClientException e) {
+                throw new IdentityOAuth2Exception(
+                        "Error while retrieving oauth issuer for the app with clientId: " + consumerKey, e);
+            }
+        }
+
         try {
-            consumerKey = OAuth2Util.getClientIdForAccessToken(tokenIdentifier);
-            OauthTokenIssuer oauthTokenIssuer = OAuth2Util.getOAuthTokenIssuerForOAuthApp(consumerKey);
+            if (oauthTokenIssuer == null) {
+                //server level token issuer
+                oauthTokenIssuer = OAuthServerConfiguration.getInstance().getIdentityOauthTokenIssuer();
+                log.info("No token issuer is found for access token identifier. Hence default token issuer is used.");
+            }
 
             if (oauthTokenIssuer.usePersistedAccessTokenAlias()) {
                 return OAuth2Util
@@ -502,10 +530,29 @@ public class TokenValidationHandler {
                 }
             }
             throw new IdentityOAuth2Exception("Error while getting access token hash.", e);
-        } catch (InvalidOAuthClientException e) {
-            throw new IdentityOAuth2Exception(
-                    "Error while retrieving oauth issuer for the app with clientId: " + consumerKey, e);
         }
+    }
+
+    /**
+     * Return true if the token identifier is JWT.
+     *
+     * @param tokenIdentifier String JWT token identifier.
+     * @return  true for a JWT token.
+     */
+    private boolean isJWT(String tokenIdentifier) {
+        // JWT token contains 3 base64 encoded components separated by periods.
+        return StringUtils.countMatches(tokenIdentifier, DOT_SEPARATER) == 2;
+    }
+
+    /**
+     * Return true if the JWT id token is encrypted.
+     *
+     * @param idToken String JWT ID token.
+     * @return  Boolean state of encryption.
+     */
+    private boolean isIDTokenEncrypted(String idToken) {
+        // Encrypted ID token contains 5 base64 encoded components separated by periods.
+        return StringUtils.countMatches(idToken, DOT_SEPARATER) == 4;
     }
 
 }
