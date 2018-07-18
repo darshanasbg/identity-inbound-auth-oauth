@@ -96,6 +96,7 @@ public class DCRMService {
 
         try {
             // Need to check whether logged in user owns the app
+            // oAuthConsumerAppDTOS will contain applications owned by the logged in user.
             OAuthConsumerAppDTO[] oAuthConsumerAppDTOS = oAuthAdminService.getAllOAuthApplicationData();
             boolean userAuthorized = false;
             for (OAuthConsumerAppDTO appDTO : oAuthConsumerAppDTOS) {

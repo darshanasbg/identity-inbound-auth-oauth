@@ -131,7 +131,7 @@ public class RegistrationRequestDTO  {
   /**
    **/
   @ApiModelProperty(value = "")
-  @JsonProperty("client_id")
+  @JsonProperty("ext_param_client_id")
   public String getClientId() {
     return clientId;
   }
@@ -143,7 +143,7 @@ public class RegistrationRequestDTO  {
   /**
    **/
   @ApiModelProperty(value = "")
-  @JsonProperty("client_secret")
+  @JsonProperty("ext_param_client_secret")
   public String getClientSecret() {
     return clientSecret;
   }
@@ -221,8 +221,8 @@ public class RegistrationRequestDTO  {
     sb.append("  application_type: ").append(applicationType).append("\n");
     sb.append("  jwks_uri: ").append(jwksUri).append("\n");
     sb.append("  url: ").append(url).append("\n");
-    sb.append("  client_id: ").append(clientId).append("\n");
-    sb.append("  client_secret: ").append(clientSecret).append("\n");
+    sb.append("  ext_param_client_id: ").append(clientId).append("\n");
+    sb.append("  ext_param_client_secret: ").append(clientSecret).append("\n");
     sb.append("  contacts: ").append(contacts).append("\n");
     sb.append("  post_logout_redirect_uris: ").append(postLogoutRedirectUris).append("\n");
     sb.append("  request_uris: ").append(requestUris).append("\n");
