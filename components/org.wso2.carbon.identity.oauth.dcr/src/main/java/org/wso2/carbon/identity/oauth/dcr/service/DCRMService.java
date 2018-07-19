@@ -67,6 +67,12 @@ public class DCRMService {
      */
     public Application getApplication(String clientId) throws DCRMException {
 
+        if (StringUtils.isEmpty(clientId)) {
+            String errorMessage = "Invalid client_id";
+            throw DCRMUtils.generateClientException(
+                    DCRMConstants.ErrorMessages.BAD_REQUEST_INVALID_INPUT, errorMessage);
+        }
+
         if (!isUserAuthorized(clientId)) {
             throw DCRMUtils.generateClientException(
                     DCRMConstants.ErrorMessages.FORBIDDEN_UNAUTHORIZED_USER, clientId);
