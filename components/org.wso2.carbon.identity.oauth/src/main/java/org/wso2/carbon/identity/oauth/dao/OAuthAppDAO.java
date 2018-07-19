@@ -481,7 +481,7 @@ public class OAuthAppDAO {
                         oAuthAppDO.getApplicationName() + " as user is not existing.");
             }
 
-            boolean isPermitted = realm.getAuthorizationManager().isUserAuthorized(userName, PERMISSION_APPLICATION_MGT,
+            boolean isPermitted = realm.getAuthorizationManager().isUserAuthorized(usernameWithDomain, PERMISSION_APPLICATION_MGT,
                     UserMgtConstants.EXECUTE_ACTION);
             if (!isPermitted) {
                 throw new IdentityOAuthAdminException("User validation failed for owner update in the application: " +
