@@ -270,7 +270,7 @@ public class JDBCScopeValidator extends OAuth2ScopeValidator {
 
             userStoreManager = realmService.getTenantUserRealm(tenantId).getUserStoreManager();
             userRoles = userStoreManager.getRoleListOfUser(
-                    MultitenantUtils.getTenantAwareUsername(user.getUserName()));
+                    MultitenantUtils.getTenantAwareUsername(user.toFullQualifiedUsername()));
         } finally {
             if (tenantFlowStarted) {
                 PrivilegedCarbonContext.endTenantFlow();
