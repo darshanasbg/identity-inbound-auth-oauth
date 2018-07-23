@@ -357,6 +357,9 @@ public class ClaimUtilTest extends PowerMockIdentityBaseTest {
         RoleMapping[] roleMappings = (RoleMapping[]) roleMappingObject;
         when(mockedServiceProvider.getPermissionAndRoleConfig()).thenReturn(mockedPermissionAndRoleConfig);
         when(mockedPermissionAndRoleConfig.getRoleMappings()).thenReturn(roleMappings);
+        when(mockedServiceProvider.getLocalAndOutBoundAuthenticationConfig()).thenReturn(mockedLocalAndOutboundConfig);
+        when(mockedLocalAndOutboundConfig.isUseUserstoreDomainInRoles()).thenReturn(true);
+
         String returned = ClaimUtil.getServiceProviderMappedUserRoles(mockedServiceProvider,
                 locallyMappedUserRoles, claimSeparator);
         Assert.assertEquals(returned, expected, "Invalid returned value");

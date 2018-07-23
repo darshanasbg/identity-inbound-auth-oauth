@@ -46,6 +46,7 @@ import org.wso2.carbon.identity.application.authentication.framework.model.Authe
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.application.common.model.ClaimConfig;
 import org.wso2.carbon.identity.application.common.model.ClaimMapping;
+import org.wso2.carbon.identity.application.common.model.LocalAndOutboundAuthenticationConfig;
 import org.wso2.carbon.identity.application.common.model.LocalRole;
 import org.wso2.carbon.identity.application.common.model.PermissionsAndRoleConfig;
 import org.wso2.carbon.identity.application.common.model.RoleMapping;
@@ -83,6 +84,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -142,7 +144,6 @@ public class DefaultOIDCClaimsCallbackHandlerTest {
 
     @Mock
     private ApplicationManagementService applicationManagementService;
-
 
     private static final String CUSTOM_ATTRIBUTE_NAME = "CustomAttributeName";
 
@@ -448,6 +449,9 @@ public class DefaultOIDCClaimsCallbackHandlerTest {
             OAuthTokenReqMessageContext requestMsgCtx = getTokenReqMessageContextForLocalUser();
 
             ServiceProvider serviceProvider = getSpWithDefaultRequestedClaimsMappings();
+            serviceProvider.setLocalAndOutBoundAuthenticationConfig(new LocalAndOutboundAuthenticationConfig());
+            serviceProvider.getLocalAndOutBoundAuthenticationConfig()
+                    .setUseUserstoreDomainInRoles(true);
             mockApplicationManagementService(serviceProvider);
 
             UserRealm userRealm = getUserRealmWithUserClaims(USER_CLAIMS_MAP);
@@ -471,6 +475,9 @@ public class DefaultOIDCClaimsCallbackHandlerTest {
             OAuthTokenReqMessageContext requestMsgCtx = getTokenReqMessageContextForLocalUser();
 
             ServiceProvider serviceProvider = getSpWithDefaultRequestedClaimsMappings();
+            serviceProvider.setLocalAndOutBoundAuthenticationConfig(new LocalAndOutboundAuthenticationConfig());
+            serviceProvider.getLocalAndOutBoundAuthenticationConfig()
+                    .setUseUserstoreDomainInRoles(true);
             mockApplicationManagementService(serviceProvider);
 
             UserRealm userRealm = getUserRealmWithUserClaims(USER_CLAIMS_MAP);
@@ -495,6 +502,9 @@ public class DefaultOIDCClaimsCallbackHandlerTest {
             OAuthTokenReqMessageContext requestMsgCtx = getTokenReqMessageContextForLocalUser();
 
             ServiceProvider serviceProvider = getSpWithDefaultRequestedClaimsMappings();
+            serviceProvider.setLocalAndOutBoundAuthenticationConfig(new LocalAndOutboundAuthenticationConfig());
+            serviceProvider.getLocalAndOutBoundAuthenticationConfig()
+                    .setUseUserstoreDomainInRoles(true);
             mockApplicationManagementService(serviceProvider);
 
             UserRealm userRealm = getUserRealmWithUserClaims(USER_CLAIMS_MAP);
@@ -515,10 +525,10 @@ public class DefaultOIDCClaimsCallbackHandlerTest {
             assertEquals(jwtClaimsSet.getCustomClaim(USERNAME), USER_NAME);
 
             assertNotNull(jwtClaimsSet.getCustomClaim(ROLE));
-            JSONArray jsonArray = (JSONArray) jwtClaimsSet.getCustomClaim(ROLE);
+            String obj = jwtClaimsSet.getCustomClaim(ROLE).toString();
             String[] expectedRoles = new String[]{ROLE1, ROLE2, ROLE3};
             for (String role : expectedRoles) {
-                assertTrue(jsonArray.contains(role));
+                assertTrue(obj.contains(role));
             }
         } finally {
             PrivilegedCarbonContext.endTenantFlow();
@@ -533,6 +543,9 @@ public class DefaultOIDCClaimsCallbackHandlerTest {
             OAuthTokenReqMessageContext requestMsgCtx = getTokenReqMessageContextForLocalUser();
 
             ServiceProvider serviceProvider = getSpWithDefaultRequestedClaimsMappings();
+            serviceProvider.setLocalAndOutBoundAuthenticationConfig(new LocalAndOutboundAuthenticationConfig());
+            serviceProvider.getLocalAndOutBoundAuthenticationConfig()
+                    .setUseUserstoreDomainInRoles(true);
             // Add a SP role mapping
             RoleMapping[] roleMappings = new RoleMapping[]{
                     new RoleMapping(new LocalRole(USER_STORE_DOMAIN, ROLE2), SP_ROLE_2),
@@ -559,10 +572,10 @@ public class DefaultOIDCClaimsCallbackHandlerTest {
             assertEquals(jwtClaimsSet.getCustomClaim(USERNAME), USER_NAME);
 
             assertNotNull(jwtClaimsSet.getCustomClaim(ROLE));
-            JSONArray jsonArray = (JSONArray) jwtClaimsSet.getCustomClaim(ROLE);
+            String rolesList = jwtClaimsSet.getCustomClaim(ROLE).toString();
             String[] expectedRoles = new String[]{ROLE1, SP_ROLE_2, ROLE3};
             for (String role : expectedRoles) {
-                assertTrue(jsonArray.contains(role));
+                assertTrue(rolesList.contains(role));
             }
         } finally {
             PrivilegedCarbonContext.endTenantFlow();
