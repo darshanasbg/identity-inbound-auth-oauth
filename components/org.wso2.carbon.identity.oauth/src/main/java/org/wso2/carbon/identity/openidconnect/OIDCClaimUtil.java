@@ -16,10 +16,12 @@
 
 package org.wso2.carbon.identity.openidconnect;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authentication.framework.exception.FrameworkException;
+import org.wso2.carbon.identity.application.authentication.framework.handler.sequence.impl.DefaultSequenceHandlerUtils;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatedUser;
 import org.wso2.carbon.identity.application.common.model.RoleMapping;
 import org.wso2.carbon.identity.application.common.model.ServiceProvider;
@@ -28,8 +30,10 @@ import org.wso2.carbon.identity.oauth.cache.AuthorizationGrantCacheEntry;
 import org.wso2.carbon.identity.oauth.cache.AuthorizationGrantCacheKey;
 import org.wso2.carbon.identity.oauth.config.OAuthServerConfiguration;
 import org.wso2.carbon.identity.openidconnect.internal.OpenIDConnectServiceComponentHolder;
+import org.wso2.carbon.user.core.util.UserCoreUtil;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -59,25 +63,55 @@ public class OIDCClaimUtil {
     public static String getServiceProviderMappedUserRoles(ServiceProvider serviceProvider,
                                                            List<String> locallyMappedUserRoles,
                                                            String claimSeparator) throws FrameworkException {
+
         if (isNotEmpty(locallyMappedUserRoles)) {
             locallyMappedUserRoles = new ArrayList<>(locallyMappedUserRoles);
+            List<String> domainRemovedRoleList = new ArrayList<>();
+            List<String> spMappedRoleList = new ArrayList<>();
+            if (isPreventAddDomainToRole(serviceProvider)) {
+                // Create a list by cloning to maintain a list of local users.
+                domainRemovedRoleList = (List<String>) ((ArrayList) locallyMappedUserRoles).clone();
+            }
             // Get Local Role to Service Provider Role mappings.
             RoleMapping[] localToSpRoleMapping = serviceProvider.getPermissionAndRoleConfig().getRoleMappings();
-
             if (isNotEmpty(localToSpRoleMapping)) {
                 for (RoleMapping roleMapping : localToSpRoleMapping) {
                     // Check whether a local role is mapped to service provider role.
                     if (locallyMappedUserRoles.contains(getLocalRoleName(roleMapping))) {
                         // Remove the local roles from the list of user roles.
                         locallyMappedUserRoles.removeAll(Collections.singletonList(getLocalRoleName(roleMapping)));
+                        if (isPreventAddDomainToRole(serviceProvider)) {
+                            // remove the sp mapped roles from the cloned list.
+                            domainRemovedRoleList.removeAll(Collections.singletonList(getLocalRoleName(roleMapping)));
+                        }
                         // Add the service provider mapped role.
                         locallyMappedUserRoles.add(roleMapping.getRemoteRole());
+                        if (isPreventAddDomainToRole(serviceProvider)) {
+                            spMappedRoleList.add(roleMapping.getRemoteRole());
+                        }
                     }
+                }
+            } else {
+                if (isPreventAddDomainToRole(serviceProvider)) {
+                    domainRemovedRoleList = locallyMappedUserRoles;
+                }
+            }
+            if (isPreventAddDomainToRole(serviceProvider)) {
+                String[] domainRemovedRoles = UserCoreUtil.removeDomainFromNames(domainRemovedRoleList.toArray
+                        (new String[domainRemovedRoleList.size()]));
+                locallyMappedUserRoles = spMappedRoleList;
+                if (!ArrayUtils.isEmpty(domainRemovedRoles)) {
+                    locallyMappedUserRoles.addAll(Arrays.asList(domainRemovedRoles));
                 }
             }
             return StringUtils.join(locallyMappedUserRoles, claimSeparator);
         }
         return null;
+    }
+
+    private static boolean isPreventAddDomainToRole(ServiceProvider serviceProvider) {
+
+        return !serviceProvider.getLocalAndOutBoundAuthenticationConfig().isUseUserstoreDomainInRoles();
     }
 
     public static String getSubjectClaimCachedAgainstAccessToken(String accessToken) {
