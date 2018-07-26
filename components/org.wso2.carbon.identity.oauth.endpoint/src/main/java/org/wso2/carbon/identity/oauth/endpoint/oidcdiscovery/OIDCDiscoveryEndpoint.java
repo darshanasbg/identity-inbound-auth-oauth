@@ -42,13 +42,11 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
-import static org.wso2.carbon.identity.oauth2.util.OAuth2Util.OAuthURL.getOAuth2TokenEPUrl;
 import static org.wso2.carbon.identity.oauth2.util.OAuth2Util.OAuthURL.getOidcDiscoveryEPUrl;
 
 @Path("/{issuer}/.well-known/openid-configuration")
 public class OIDCDiscoveryEndpoint {
 
-    public static final String OIDCDISCOVERY = "oidcdiscovery";
     private static final Log log = LogFactory.getLog(OIDCDiscoveryEndpoint.class);
 
     @GET
@@ -70,8 +68,7 @@ public class OIDCDiscoveryEndpoint {
         }
          /*  [https://openid.net/specs/openid-connect-discovery-1_0.html#IssuerDiscovery]
              "OpenID Providers supporting Discovery MUST make a JSON document available at the path formed by concatenating
-             the string /.well-known/openid-configuration to the Issuer. TO preserve the backward compatibility the
-             location of "oidcdiscovery" is also allowed."*/
+             the string /.well-known/openid-configuration to the Issuer."*/
         try {
             if (getOidcDiscoveryEPUrl(tenantDomain).equals(issuer)) {
 
