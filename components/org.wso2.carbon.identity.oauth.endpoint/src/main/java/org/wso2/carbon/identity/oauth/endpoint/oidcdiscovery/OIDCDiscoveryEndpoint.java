@@ -30,7 +30,6 @@ import org.wso2.carbon.identity.discovery.builders.OIDProviderResponseBuilder;
 import org.wso2.carbon.identity.oauth.common.OAuthConstants;
 import org.wso2.carbon.identity.oauth.endpoint.oidcdiscovery.impl.OIDProviderJSONResponseBuilder;
 import org.wso2.carbon.identity.oauth.endpoint.util.EndpointUtil;
-
 import java.net.URI;
 import java.net.URISyntaxException;
 import javax.servlet.http.HttpServletRequest;
@@ -71,9 +70,11 @@ public class OIDCDiscoveryEndpoint {
              "OpenID Providers supporting Discovery MUST make a JSON document available at the path formed by concatenating
              the string /.well-known/openid-configuration to the Issuer."*/
         try {
+
             if (!MultitenantConstants.SUPER_TENANT_DOMAIN_NAME.equals(tenantDomain)) {
                 issuer = getTenantUrl(issuer, tenantDomain);
             }
+
             if (getOidcDiscoveryEPUrl(tenantDomain).equals(issuer)) {
 
                 return this.getResponse(request, tenantDomain);
