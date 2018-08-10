@@ -358,9 +358,9 @@ public class ClaimUtil {
                 tokenIdentifier = tokenIssuer.getAccessTokenHash(accessToken);
             }
         } catch (OAuthSystemException e) {
-            log.error("Error while getting token identifier");
+            log.error("Error while getting token identifier", e);
         } catch (IdentityOAuth2Exception e) {
-            log.error("Error while retrieving token issuer");
+            log.error("Error while retrieving token issuer", e);
         }
         return tokenIdentifier;
     }
