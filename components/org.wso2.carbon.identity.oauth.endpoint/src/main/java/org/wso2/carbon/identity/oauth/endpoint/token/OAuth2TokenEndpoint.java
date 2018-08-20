@@ -45,6 +45,7 @@ import org.wso2.carbon.identity.oauth2.bean.OAuthClientAuthnContext;
 import org.wso2.carbon.identity.oauth2.dto.OAuth2AccessTokenReqDTO;
 import org.wso2.carbon.identity.oauth2.dto.OAuth2AccessTokenRespDTO;
 import org.wso2.carbon.identity.oauth2.model.CarbonOAuthTokenRequest;
+import org.apache.commons.collections.MapUtils;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
@@ -156,6 +157,11 @@ public class OAuth2TokenEndpoint {
 
         if (oauth2AccessTokenResp.getIDToken() != null) {
             oAuthRespBuilder.setParam(OAuthConstants.ID_TOKEN, oauth2AccessTokenResp.getIDToken());
+        }
+        // Set custom parameters in token response if supported
+        if (MapUtils.isNotEmpty(oauth2AccessTokenResp.getParameters())) {
+            oauth2AccessTokenResp.getParameters().forEach((paramKey, paramValue) -> oAuthRespBuilder.setParam
+                    (paramKey, paramValue));
         }
 
         OAuthResponse response = oAuthRespBuilder.buildJSONMessage();
