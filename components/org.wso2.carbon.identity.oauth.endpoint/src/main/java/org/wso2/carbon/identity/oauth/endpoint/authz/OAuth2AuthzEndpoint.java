@@ -1195,6 +1195,11 @@ public class OAuth2AuthzEndpoint {
         commonAuthenticationHandler.doGet(requestWrapper, responseWrapper);
 
         Object attribute = request.getAttribute(FrameworkConstants.RequestParams.FLOW_STATUS);
+
+        if (attribute != AuthenticatorFlowStatus.SUCCESS_COMPLETED) {
+            OIDCSessionManagementUtil.removeOPBrowserStateCookie(request, response);
+        }
+
         if (attribute != null) {
             if (attribute == AuthenticatorFlowStatus.INCOMPLETE) {
 
